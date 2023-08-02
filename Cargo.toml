@@ -1,0 +1,8 @@
+[package]
+name = "learn_you_galois_fields_for_great_good"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
