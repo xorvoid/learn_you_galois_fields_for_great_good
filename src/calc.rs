@@ -27,6 +27,19 @@ enum Operator {
   Div,
 }
 
+const MAX_PREC: usize = 2;
+
+impl Operator {
+  fn prec(&self) -> usize {
+    match self {
+      Operator::Add => 2,
+      Operator::Sub => 2,
+      Operator::Mul => 1,
+      Operator::Div => 1,
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Token<F: Field> {
   Number(F),
@@ -149,27 +162,35 @@ fn eval_unary<F: Field>(lex: &mut Lexer<F>) -> Result<F, Error> {
   }
 }
 
-fn eval_expr<F: Field>(lex: &mut Lexer<F>) -> Result<F, Error> {
-  let result = eval_unary(lex)?;
-
-  let op = match lex.token_peek() {
-    Some(Token::Oper(op)) => {
-      lex.token_next()?;
-      op
-    },
-    _ => return Ok(result),
-  };
-
-  let rhs = eval_unary(lex)?;
-  match op {
-    Operator::Add => Ok(result + rhs),
-    Operator::Sub => Ok(result - rhs),
-    Operator::Mul => Ok(result * rhs),
-    Operator::Div => match result / rhs {
-      Ok(num) => Ok(num),
-      Err(_) => Err(Error::DivisionByZero),
-    }
+fn eval_expr_prec<F: Field>(lex: &mut Lexer<F>, prec: usize) -> Result<F, Error> {
+  if prec == 0 {
+    return eval_unary(lex);
   }
+
+  let mut result = eval_expr_prec(lex, prec-1)?;
+
+  loop {
+    let op = match lex.token_peek() {
+      Some(Token::Oper(op)) if op.prec() == prec => {
+        lex.token_next()?;
+        op
+      },
+      _ => return Ok(result),
+    };
+
+    let rhs = eval_expr_prec(lex, prec-1)?;
+
+    result = match op {
+      Operator::Add => result + rhs,
+      Operator::Sub => result - rhs,
+      Operator::Mul => result * rhs,
+      Operator::Div => (result / rhs).map_err(|_| Error::DivisionByZero)?,
+    };
+  }
+}
+
+fn eval_expr<F: Field>(lex: &mut Lexer<F>) -> Result<F, Error> {
+  eval_expr_prec(lex, MAX_PREC)
 }
 
 pub fn evaluate<F: Field>(input: &str) -> Result<F, Error> {
@@ -250,7 +271,6 @@ pub fn interactive_calculator<F: Field>(name: &str) {
   print_operation_table::<F>(Operator::Div);
   println!("");
   println!("Enter any expression for evaluation (e.g. (1 + 2) * 4)");
-  println!("NOTE: Order of operations is not supported, use explict parenthesis");
   println!("");
 
   loop {
