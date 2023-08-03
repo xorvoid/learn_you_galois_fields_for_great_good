@@ -218,14 +218,14 @@ fn print_operation_table<F: Field>(op: Operator) {
   }
   println!("");
 
-  // Print the header seperator
+  // Print the header separator
   println!("{}", "-".repeat(7 + 5*n));
 
   // Print each row
   for y in 0..n {
     let y_num: F = format!("{}", y).parse().unwrap();
     print!(" {:>3}  | ", y);
-    // Print each colomn element
+    // Print each column element
     for x in 0..n {
       let x_num: F = format!("{}", x).parse().unwrap();
       let result = match op {

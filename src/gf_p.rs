@@ -121,10 +121,10 @@ impl GF {
   }
 }
 
-//// Similairly to subtraction, we can implement division in terms of multiplication
+//// Similarly to subtraction, we can implement division in terms of multiplication
 //// and inversion since: `a / b = a * inv(b)`
 ////
-//// Notice again that we use a `Result<>` to communicate that dividision by zero will fail
+//// Notice again that we use a `Result<>` to communicate that division by zero will fail
 impl Div<GF> for GF {
   type Output = Result<GF, String>;
   fn div(self, rhs: Self) -> Result<GF, String> {
