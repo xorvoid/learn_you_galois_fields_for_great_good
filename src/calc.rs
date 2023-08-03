@@ -250,9 +250,14 @@ fn read_line() -> String {
 }
 
 pub fn interactive_calculator<F: Field>(name: &str) {
-  println!("{}", "=".repeat(100));
+  let echo_line = match std::env::var("LEARN_YOU_GALOIS_FIELDS_FOR_GREAT_GOOD_CALC_ECHO") {
+    Ok(val) => val != "0",
+    Err(_) => false,
+  };
+
+  println!("{}", "=".repeat(80));
   println!("A Calculator for {}", name);
-  println!("{}", "=".repeat(100));
+  println!("{}", "=".repeat(80));
   println!("");
   println!("Addition Table:");
   println!("");
@@ -280,6 +285,9 @@ pub fn interactive_calculator<F: Field>(name: &str) {
     let line = read_line();
     if line.len() == 0 {
       break;
+    }
+    if echo_line {
+      print!("{}", line);
     }
 
     match evaluate::<F>(&line) {
