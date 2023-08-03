@@ -212,19 +212,19 @@ fn print_operation_table<F: Field>(op: Operator) {
   };
 
   // Print the header
-  print!(" {}  | ", name);
+  print!(" {:>3}  | ", name);
   for x in 0..n {
-    print!("{}  ", x);
+    print!("{:>3}  ", x);
   }
   println!("");
 
   // Print the header seperator
-  println!("{}", "-".repeat(5*n));
+  println!("{}", "-".repeat(7 + 5*n));
 
   // Print each row
   for y in 0..n {
     let y_num: F = format!("{}", y).parse().unwrap();
-    print!(" {}  | ", y);
+    print!(" {:>3}  | ", y);
     // Print each colomn element
     for x in 0..n {
       let x_num: F = format!("{}", x).parse().unwrap();
@@ -234,10 +234,11 @@ fn print_operation_table<F: Field>(op: Operator) {
         Operator::Mul => Ok(y_num * x_num),
         Operator::Div => y_num / x_num,
       };
-      match result {
-        Ok(num) => print!("{}  ", num),
-        Err(_) => print!("{}  ", '-'),
-      }
+      let s = match result {
+        Ok(num) => format!("{}", num),
+        Err(_) => "-".to_string(),
+      };
+      print!("{:>3}  ", s);
     }
     println!("");
   }
