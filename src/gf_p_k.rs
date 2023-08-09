@@ -16,8 +16,7 @@ use std::ops::{Add, Mul, Sub, Div};
 //// We use some defaults below for a `GF(3^2)` Field.
 ////
 //// Feel free change the parameters to get a different field. But, please do be careful to configure
-//// correctly. Most notably: `P` must be prime, and `Q` must be irreducible. We will demonstrate tooling
-//// later to help find irreducible polynomials.
+//// correctly. Most notably: `P` must be prime, and `Q` must be irreducible.
 pub const P: usize = 3;  // Default: GF(3)
 pub const K: usize = 2;  // Default: All polynomials below x^2
 pub const Q: usize = 10; // Default: x^2 + 1
