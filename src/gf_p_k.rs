@@ -4,20 +4,20 @@
 //// operator-overloading so we can use the normal operators: +, -, *, /
 use std::ops::{Add, Mul, Sub, Div};
 
-//// Similar to our implementation of `GF(p)` fields, we'll define the constant paramaters
+//// Similar to our implementation of `GF(p)` fields, we'll define the constant parameters
 //// here instead of using advanced Rust features.
 ////
 //// In particular, we need:
 ////
 ////   - `P`: A prime value for the coefficients field `GF(p)`
 ////   - `K`: A polynomial order limit parameter
-////   - `Q`: An irredicible polynomial for the modulus operation
+////   - `Q`: An irreducible polynomial for the modulus operation
 ////
 //// We use some defaults below for a `GF(3^2)` Field.
 ////
 //// Feel free change the parameters to get a different field. But, please do be careful to configure
-//// correctly. Most notably: `P` must be prime, and `Q` must be irreducible. We will demostrate tooling
-//// later to help find irredicuble polynomials.
+//// correctly. Most notably: `P` must be prime, and `Q` must be irreducible. We will demonstrate tooling
+//// later to help find irreducible polynomials.
 pub const P: usize = 3;  // Default: GF(3)
 pub const K: usize = 2;  // Default: All polynomials below x^2
 pub const Q: usize = 10; // Default: x^2 + 1
@@ -59,7 +59,7 @@ impl GF {
     // Sanity check!
     assert!((val as usize) < GF::number_of_elements());
 
-    // Decompose the decimal represenation into a vector
+    // Decompose the decimal representation into a vector
     let p = P as u64;
     let mut vec = [0; K];
     for i in 0..K {
@@ -144,7 +144,7 @@ impl Sub<GF> for GF {
 //// Multiplication is a completely different beast than addition. You were warned ;-).
 ////
 //// Recall that multiplication is a convolution of the coefficients. We can compute a convolution
-//// by effecively flipping around one of the vectors and computing sliding dot-products.
+//// by effectively flipping around one of the vectors and computing sliding dot-products.
 ////
 //// Let's do some examples:
 ////
@@ -216,18 +216,18 @@ impl Sub<GF> for GF {
 //// 1. Instead of actually reversing a vector, we'll just use backwards array indexing
 //// 2. Observe that a convolution of two k-element vectors produces a (2k-1)-element result!
 ////
-//// Here's some psuedocode for the algorithm:
+//// Here's some pseudocode for the algorithm:
 ////
 //// ```text
 //// for i in 0..(2k-1) {
 ////   c[i] = 0
 ////   for j in 0..k {
-////     c[i] += a[i - j] * b[j]     (where out-of-bounds indicies implicitly load 0)
+////     c[i] += a[i - j] * b[j]     (where out-of-bounds indices implicitly load 0)
 ////   }
 //// }
 //// ```
 ////
-//// And here's the real implementation that deals with all the real-world practical messiness. Compare it to the psuedocode if it's confusing. The same algorithmic structure is present.
+//// And here's the real implementation that deals with all the real-world practical messiness. Compare it to the pseudocode if it's confusing. The same algorithmic structure is present.
 
 fn poly_mul(a: &[u8; K], b: &[u8; K]) -> [u8; 2*K-1] {
   // A convolution implementation over the field GF(p)
@@ -235,7 +235,7 @@ fn poly_mul(a: &[u8; K], b: &[u8; K]) -> [u8; 2*K-1] {
   for i in 0..(2*K-1) {
     // Each coefficient is the sum of many sub-terms
     for j in 0..K {
-      // Ignore terms with out-of-bounds indicies (they are implicitly zero)
+      // Ignore terms with out-of-bounds indices (they are implicitly zero)
       if i < j || i - j >= K {
         continue;
       }
@@ -298,8 +298,8 @@ fn poly_mul(a: &[u8; K], b: &[u8; K]) -> [u8; 2*K-1] {
 ////
 //// Well actually, we're doing two simpler operations:
 ////
-//// - `shift`: Multiplying by a monomial in `(1, x, x^2, x^3, ...etc...)` is a simple shift of the coefficent array
-//// - `scale`: Multiplying by any scalar is a simple pointwise-coefficent multiply.
+//// - `shift`: Multiplying by a monomial in `(1, x, x^2, x^3, ...etc...)` is a simple shift of the coefficient array
+//// - `scale`: Multiplying by any scalar is a simple pointwise-coefficient multiply.
 ////
 //// So we don't need normal polynomial multiplication to do this.
 ////
@@ -308,12 +308,12 @@ fn poly_mul(a: &[u8; K], b: &[u8; K]) -> [u8; 2*K-1] {
 fn poly_mod(mut a: [u8; 2*K-1], q: &[u8; K+1]) -> [u8; K] {
   // We'll iterate from high-terms to low-terms, eliminating each:
   //   2k-2, 2k-3, ..., k+1, k
-  // This will leave exactly k coefficents
+  // This will leave exactly k coefficients
   for i in (K..(2*K-1)).rev() {
 
     // Determine "our shift" and "scale" for `Q`
-    let shift = i - K; // coefficent shift
-    let scale = coeff_neg(a[i]); // coefficent scale
+    let shift = i - K; // coefficient shift
+    let scale = coeff_neg(a[i]); // coefficient scale
 
     // Apply to each coefficient, shifted
     for j in shift..=i { // inclusive: [shift, i]
@@ -329,10 +329,10 @@ fn poly_mod(mut a: [u8; 2*K-1], q: &[u8; K+1]) -> [u8; K] {
   a[..K].try_into().unwrap()
 }
 
-//// Lastly, we need a little routine to convert our irredicible polynomial into the vector
+//// Lastly, we need a little routine to convert our irreducible polynomial into the vector
 //// notation used by `poly_mod()`
 fn poly_q() -> [u8; K+1] {
-  // Decompose the decimal represenation into a vector
+  // Decompose the decimal representation into a vector
   let p = P as u64;
   let mut val = Q as u64;
   let mut vec = [0; K+1];
@@ -344,7 +344,7 @@ fn poly_q() -> [u8; K+1] {
 }
 
 //// With these polynomial operations, our final multiply is simple to complete.
-//// It's just the defintion that we gave in the previous theory
+//// It's just the definition that we gave in the previous theory
 //// section: `poly_mod(poly_mul(A, B), Q)`
 impl Mul<GF> for GF {
   type Output = GF;
@@ -390,7 +390,7 @@ impl Div<GF> for GF {
 //// #### Some final things
 ////
 //// Just as before, we need to teach Rust a few extra tricks.
-//// These are all quite similair to `GF(p)` if you'd rather skim them.
+//// These are all quite similar to `GF(p)` if you'd rather skim them.
 ////
 //// Printing out numbers:
 impl std::fmt::Display for GF {
