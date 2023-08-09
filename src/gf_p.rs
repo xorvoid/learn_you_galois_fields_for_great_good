@@ -16,12 +16,11 @@ pub const P: u8 = 5;
 //// The type we use to represent a number in `GF(p)` is just an unsigned 8-bit integer (`u8`).
 //// This design will allow for prime fields up to size `251` (the largest prime that fits
 //// in 8-bits). We will also tell Rust that its okay to copy (`Clone` & `Copy`) and to compare
-//// by two numbers via equality (`PartialEq`)
+//// two numbers via equality (`PartialEq`)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GF(u8);
 
-
-//// Constructing a new number is `GF(p)` is easy: we just need to ensure it's within
+//// Constructing a new number in `GF(p)` is easy: we just need to ensure it's within
 //// the set `{0, 1, ..., p-1}`
 impl GF {
   pub fn new(val: u8) -> GF {
