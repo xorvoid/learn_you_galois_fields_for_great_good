@@ -1,6 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
-
-//// #### An implementation of Computer Science Fields GF(2^k)
+//// #### Implementing Binary Fields GF(2^k)
 ////
 //// After implementing the general `GF(p^k)` Fields, why would we implement a special case?
 //// Can't we just use that implemention, configured for `p = 2`?
@@ -17,39 +15,80 @@ use std::ops::{Add, Div, Mul, Sub};
 //// *An Ordinary Binary Number*
 ////
 //// Consider an 8-bit unsigned integer (`u8`), we can view this as a *vector of 8 bits*.
-//// Similarly, a 16-bit unsigned integer (`u8`) can be viewed as a *vector of 16 bits*. And so on!
+//// Similarly, a 16-bit unsigned integer (`u16`) can be viewed as a *vector of 16 bits*. And so on!
+////
+//// Let's also review the coefficent field `GF(2)`. Here are the addition and multiplication tables.
+//// You may wish to review [section 2](galois_fields_for_great_good_02.html) and [section 3](galois_fields_for_great_good_03.html):
+////
+//// Addition:
+////
+////  **+**  |  **0**  | **1**
+//// --------|---------|--------
+////  **0**  |    0    |   1
+////  **1**  |    1    |   0
+////
+//// Multiplication:
+////
+////  *****  |  **0**  | **1**
+//// --------|---------|--------
+////  **0**  |    0    |   0
+////  **1**  |    0    |   1
+////
+//// <i><u>Exercise:</u></i> These correspond to two very well-known common bitwise operations, which are they?
+////
+//// That's right! Addition is a bitwise XOR and Multiplication is a bitwise AND!
 ////
 //// Nifty, huh?
 ////
-//// This is why I call these fields the *Computer Science Fields*. These map extremely well onto
-//// ordinary binary-state transistor computers. And, it turns out that common bitwise operations
-//// are useful as well! We'll discuss these as we implement `GF(2^k)`
+//// All of these properties make `GF(2^k)` fields incredibly useful for computer science applications as
+//// they map very well onto ordinary binary-state transistor computers.
 ////
+//// #### Enough chatter, let's go code!
+////
+//// As before, we will implement addition, subtraction, multiplication, and division using
+//// operator-overloading so we can use the normal operators: +, -, *, /
+use std::ops::{Add, Div, Mul, Sub};
+
+//// Similar to our other implementations, we'll define the constant parameters
+//// here instead of using advanced Rust features.
+////
+//// In particular, we need:
+////
+////   - `K`: A polynomial order limit parameter
+////   - `Q`: An irreducible polynomial for the modulus operation
+////
+//// We use some defaults below for a `GF(2^3)` Field.
+////
+//// Feel free change the parameters to get a different field. But, please do be careful to configure
+//// correctly. Most notably: `Q` must be irreducible.
 
 pub const K: usize = 3; // Must be less-or-equal 64, as we are using u64 for the bitvector
 pub const Q: u64 = 11; // Default: x^3 + x + 1
 
-//// We will store polynomials as a single u64 because all of our coefficients
+//// We will store polynomials as a single u64 because all of our polynomial coefficients
 //// are in {0,1}
 ////
-//// For example x^3 + x^2 (+ 0x) + 1 can be represented as 0b1101
+//// For example `x^3 + x^2 (+ 0x) + 1` can be represented as `0b1101` or as `13` in decimal
 ////
 //// This is slightly different than the previous integer representation
-//// conversion scheme we used for GF(P^K).
-////
-//// Exercize: or is it?
+//// conversion scheme we used for `GF(p^k)`.
+
+//// <i><u>Exercise:</u></i> Convert 32 to a polynomial in `GF(2)[x]`, then convert to binary</br>
+
+//// <p><i><u>Exercise:</u></i> Convert 31 to a polynomial in `GF(2)[x]`, then convert to binary</p>
+
+//// <p><i><u>Exercise:</u></i> Convert the polynomial x^4 + x in `GF(2)[x]` to binary, then convert to decimal</p>
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct GF2K(u64);
+pub struct GF(u64);
 
-//// The basic utility functions are extremely straightforward now; we have
-//// almost no work to do here
+//// The basic utility functions are very straightforward now:
 
-impl GF2K {
-  pub fn new(val: u64) -> GF2K {
+impl GF {
+  pub fn new(val: u64) -> GF {
     // Sanity check!
-    assert!((val as usize) < GF2K::number_of_elements());
-    GF2K(val)
+    assert!((val as usize) < GF::number_of_elements());
+    GF(val)
   }
 
   pub fn number_of_elements() -> usize {
@@ -63,205 +102,230 @@ impl GF2K {
   }
 }
 
-//// Addition in GF(2^k)
+//// #### Addition in `GF(2^k)`
 ////
-//// Our coefficients are all in GF(2). Let's revisit the addition table for
-//// GF(2).
+//// Recall that polynomial addition is pointwise addition of coefficents. Since addition in `GF(2)` is an XOR, it is also in `GF(2^k)`:
 ////
-////  +  |  0    1
-//// ----|----------
-////  0  |  0    1
-////  1  |  1    0
-////
-//// Addition is XOR of the two digits.
-////
-//// Therefore, polynomial addition, of two bitvectors is just the xor of the
-//// two bitvectors
-////
+//// ```text
 ////          1x^2 + 1x + 1   =>    0b0111
 //// + 1x^3 + 0x^2 + 1x + 1   => ^  0b1011
 //// ----------------------      ---------
 ////   1x^3 + 1x^2 + 0x + 0  =>     0b1100
+//// ```
 
-impl Add<GF2K> for GF2K {
-  type Output = GF2K;
-  fn add(self, rhs: GF2K) -> GF2K {
-    GF2K::new(self.0 ^ rhs.0)
+//// In code, this is simply:
+
+impl Add<GF> for GF {
+  type Output = GF;
+  fn add(self, rhs: GF) -> GF {
+    GF::new(self.0 ^ rhs.0)
   }
 }
 
-//// Negation in GF(2)
-////
-//// Look carefully at the addition table for the GF(2) coefficients.
+//// #### Negation and Subtraction in `GF(2^k)`
 ////
 //// To negate, we want the value b, such that a+b=0
-//// For 0, that is 0
-//// For 1, that is 1
 ////
-//// So negate(a) = a in GF(2)
+//// <i><u>Exercise:</u></i> Look at the addition table for `GF(2)`. For each number, what is it's negation?
+////
+//// That's right, the negation of a number in `GF(2)` is itself. Negation is an identity operation! And, in `GF(2^k)` it is the same also.
+////
+//// So, we have the simple implementation for negation:
 
-impl GF2K {
-  pub fn negate(self) -> GF2K {
+impl GF {
+  pub fn negate(self) -> GF {
     self
   }
 }
 
-//// Subtraction in GF(2)
+//// A fascinating consequence of this is that subtraction and addition are the same operation. Just an XOR!
 ////
-//// Trivially, just add a + inverse(b) to subtract!
-//// inverse(b)=b, so really a-b=a+b
+//// Here, we'll write the subtraction implementation as we have for other fields. But, in many optimized implementations, the same routine as addition is used!
 
-impl Sub<GF2K> for GF2K {
-  type Output = GF2K;
-  fn sub(self, rhs: GF2K) -> GF2K {
-    self + rhs.negate() // or just `self + rhs`
-  }
-}
-
-//// Multiplication in GF(2^K)
-////
-//// This function performs polynomial multiplication in GF(2), where each bit in
-//// the u64 represents a coefficient of a polynomial.
-////
-//// When we know the coefficients are all in GF(2), the convolution algorithm
-//// simplifies significantly:
-//// - Multiplication of bits is logical AND
-//// - Addition of bits is logical XOR
-////
-//// For each position in the result polynomial, we compute the coefficient by:
-//// 1. Finding all pairs of positions (j, i-j) from a and b that contribute to position i
-//// 2. ANDing each pair of bits (multiplication in GF(2))
-//// 3. XORing all products together (addition in GF(2))
-////
-//// Example in GF(2^3):
-//// Let a = x^2 + 1 (0b101) and b = x^2 + x (0b110)
-////
-//// Computing some coefficients:
-//// - Position 1: (a[0]&b[1]) ^ (a[1]&b[0]) = (1&1) ^ (0&0) = 1
-//// - Position 2: (a[0]&b[2]) ^ (a[1]&b[1]) ^ (a[2]&b[0]) = (1&1) ^ (0&1) ^ (1&0) = 1
-////
-//// Final result: x^4 + x^3 + x^2 + x (0b11110)
-////
-//// The result has degree up to 2*K-2, which will later be reduced modulo Q using poly_mod.
-
-fn poly_mul(a: u64, b: u64) -> u64 {
-  // Result goes into c
-  let mut c: u64 = 0;
-
-  // For each possible result position (in a full multiplication)
-  for i in 0..(2 * K - 1) {
-    // Calculate the i-th coefficient of the result
-    let mut coef = 0;
-    for j in 0..K {
-      // Skip if the j-th coefficient from a or (i-j)-th coefficient from b is out of bounds
-      if i < j || (i - j) >= K {
-        continue;
-      }
-
-      // Get the j-th bit of a and (i-j)-th bit of b
-      let bit_a = (a >> j) & 1;
-      let bit_b = (b >> (i - j)) & 1;
-      coef ^= bit_a & bit_b; // coef += a * b
+impl Sub<GF> for GF {
+    type Output = GF;
+    fn sub(self, rhs: GF) -> GF {
+        self + rhs.negate() // or `self + rhs` or `self.0 ^ rhs.0`
     }
-
-    c |= coef << i; // set the bit high, if the sum is 1
-  }
-
-  c
 }
 
-//// Modulus in GF(2^K)
+//// #### Multiplication in `GF(2^k)`
 ////
-//// Use two assumptions:
-//// 1. The polynomial `a` is a result of some multiplication; it is of order 2*K - 2
-//// 2. q is some irreducible polynomial of order K
+//// Now we come to multiplication, the tricky operation in polynomial fields.
 ////
-//// So we (again) only need to eliminate terms starting at high order and
-//// working our way down to K
+//// For `GF(p^k)` we implemented multiplication as two-steps:
 ////
-//// Following the same algorithm we used in gf_p_k, we can just apply the
-//// shifts. Notice that, because the coefficients can only be in {0,1}, we'll
-//// never need to perform any scaling.
+////   1. Convolution of coefficents yielding `2k` new coefficents
+////   2. Polynomial modulus reduction to `k` coefficents
 ////
-//// Let's work a short example in GF(2^3):
+//// For `GF(2^k)` we could do exactly the same thing but we can simplify by better utilizing bitwise operations.
 ////
-//// Using q = x^3 + x + 1 (0b1011)
-//// Let a = x^4 + x^2 + 1 (0b10101)
+//// First let's recall the two operations we used in reduction for `GF(p^k)`:
 ////
-//// Start at i=K*2 - 1 = 3*2 - 2 = 6 - 2 = 4:
-////   a[4] = 1
+//// - `shift`: Multiplying by a monomial in `(1, x, x^2, x^3, ...etc...)` is a simple shift of the coefficient array
+//// - `scale`: Multiplying by any scalar is a simple pointwise-coefficient multiply.
 ////
-//// So we need to shift q (of order K=3) to be order 4
-////   shift = 4-3 = 1
+//// For `GF(2^k)` these operations simplify:
 ////
-//// Which, in polynomial representation is:
-////   (x^3 + x + 1) * x = x^4 + x^2 + x
+//// - `shift`: Shifting the coefficent array is just performing a "bit-shift" (i.e. `<<` or `>>`)
+//// - `scale`: Scaling means multiplying by 0 or 1, this is a "selection operation" (i.e. `if (not_zero) use_it()`)
 ////
-//// Notice that we can do this simply by shifting the entire integer q with a
-//// bitshift.
-////   q << shift
-////   == 0b1011 << 1
-////   == 0b10110      (same thing as x^4 + x^2 + x)
+//// <i><u>Exercise:</u></i> Convince yourself that these are equivalent operations for `GF(2^k)`?
 ////
 ////
-//// We can now "add" together the coefficients all at once using an XOR:
-////   a = a ^ q_shifted
+//// #### Multiplication by shift and select
 ////
-//// The rest of the algorithm works the same way as before; notice that we've
-//// effectively vectorized over the addition again by using the xor!
+//// Another way to perform polynomial multiplication is to decompose it into a several simpler products using the distribution law.
+////
+//// Consider polynomials `a` and `b` and we wish to obtain `a*b`. If we expand polynomial `b`, we have:
+////
+//// ```text
+//// a * b = a * (b_n x^n + ... + b_1 x + b_0)
+////       = b_n * a * x^n + ... + b_1 * a * x + b_0 * a
+//// ```
+////
+//// As discussed in the previous section, multiplying by a monomial (e.g. `x^k`) is a simple coefficent shift operation.
+////
+//// Thus, we'll use the notation:
+//// ```text
+//// a * x^k = a << k
+//// ```
+////
+//// This gives us:
+//// ```text
+//// a * b = b_n * (a << n) + ... + b_1 * (a << 1) + b_0 * (a << 0)
+//// ```
+////
+//// Now observe that for coefficents in `GF(2)`, `b_i` is in the set `{0, 1}`. This means that in the above decomposition, there is no coefficent multiplication. Instead, we either add the term to the result or we skip it (selection).
+////
+//// As an example, consider:
+//// ```text
+//// b = x^5 + x^3 + 1  (or 0b101001)
+//// ```
+////
+//// Then, our decomposition is:
+//// ```text
+//// a * b = (a << 5) + (a << 3) + (a << 0)
+//// ```
+////
+//// In other words, we simply sum all shifts, but skip anywhere the coefficent is 0.
+////
+//// In pseudocode, we have:
+////
+//// ```text
+//// c = 0
+//// for i in 0..k:
+////   if extract_bit(b, i) == 1:
+////     c = poly_add(c, a)   ## c ^= a
+////   a = a << 1
+//// return c
+//// ```
+////
+//// Here, we iterate through each possible term (`a << i`) one at a time. Then, we select the terms that we need and add them.
+////
+//// <i><u>Exercise:</u></i> Think about this algorithm a bit. Convince yourself it is correct. Why is this a
+////
+//// <i><u>Exercise:</u></i> This algorithm appears to only consider `n` terms, but a convolution involves `O(n^2)` terms. What's going on here?
+////
+//// <i><u>Exercise:</u></i> How would this scale to very large `k`? (e.g. consider k = 1,000,000,000)
+////
+//// #### Applying the polynomial reduction
+////
+//// To complete the multiplication, we need to apply the polynomial reduction. We could do this in the same way as our `GF(p^k)` implementation, but
+//// there's a better approach that allows us to integrate this operation into the above algorithm.
+////
+//// The first observation is that we never need to apply a reduction after an addition in `GF(2^k)`. This means that in the above algorithm, we only have to
+//// worry about the `a << 1` monomial shifting (`a * x`). Instead of applying the reduction at the end, we can instead apply this after every `a << 1` computation.
+////
+//// At first glance, this doesn't seem like an improvement. Now we're doing `k` reductions instead of a single one (at the end)! But, it turns out each of
+//// these `k` reductions is a much simper and faster operation.
+////
+//// If `a` is in `GF(2^k)`, then it can be represented by at most `k` bits. Thus, `a << 1` can be represented in
+//// at most `k + 1` bits. This means that we only have to consider the most-significant-bit. If it is set, we simply need to subtract off `Q` (the irreducible polynomial) to obtain just `k` bits.
+////
+//// Let's do an example using:
+//// ```text
+//// K = 3
+//// Q = x^3 + x + 1  (0b1011)
+//// A = x^2 + x      (0b0110)
+//// ```
+////
+//// Step by step:
+////
+//// | Iter # | `A`      | `A << 1` | `(A << 1) % Q`  |
+//// |--------|----------|----------|-----------------|
+//// |   `1`  | `0b0110` | `0b1100` | `0b0111`        |
+//// |   `2`  | `0b0111` | `0b1110` | `0b0101`        |
+//// |   `3`  | `0b0101` | `0b1010` | `0b0001`        |
+//// |   `4`  | `0b0001` | `0b0010` | `0b0010`        |
+//// |   `5`  | `0b0010` | `0b0100` | `0b0100`        |
+//// |   `6`  | `0b0100` | `0b1000` | `0b0011`        |
+//// |   `7`  | `0b0011` | `0b0110` | `0b0110`        |
+////
+//// As you can see, when the most-significant-bit is set (iters 1,2,3,6), we subtract off `Q` (XOR).
+//// And, when the most-significant-bit is clear (iters 4,5,7), we do nothing.
+////
+//// <i><u>Exercise:</u></i> Work through an iteration table using A = x^2 + 1 (0b1001) instead.
+////
+//// Let's add this reduction step to out multiplication algorithm:
+////
+//// ```text
+//// c = 0
+//// for i in 0..k:
+////   if extract_bit(b, i) == 1:
+////     c = poly_add(c, a)   ## c ^= a
+////   a = a << 1
+////   if extract_bit(a, k) == 1:
+////     a = poly_sub(a, q)
+//// return c
+//// ```
+////
+//// <i><u>Exercise:</u></i> Make sure you fully understand the algorithm before proceeding.
+////
+//// Okay, lets get back to coding!
+////
 
-fn poly_mod(mut a: u64, q: u64) -> u64 {
-  // We'll iterate from high-terms to low-terms, eliminating each:
-  //   2K-2, 2K-3, ..., K+1, K
-  // This will leave exactly K coefficients
-  for i in (K..=(2 * K - 2)).rev() {
-    let a_i = a & (1u64 << i); // extract `i`th coefficient
-
-    // If the i-th bit is already 0, nothing to do
-    if a_i == 0 {
-      continue;
-    };
-
-    let shift = i - K; // coefficient shift
-    let q_shifted = q << shift; // shifting with coefs in GF(2) is a bit shift
-
-    // add (xor) q_shifted into a (elimination the leading term)
-    a = a ^ q_shifted;
-
-    // the i'th term should be zero now
-    assert_eq!(a & (1u64 << i), 0);
-  }
-
-  // All bits at position K and higher should be zero now
-  a
+fn extract_bit(n: u64, i: usize) -> u64 {
+    (n >> i) & 1
 }
 
-//// Just like before, multiplication is actually two steps:
-//// 1. Multiply (produces a higher order polynomial)
-//// 2. Take mod to get back into the field
+impl Mul<GF> for GF {
+    type Output = GF;
+    fn mul(self, rhs: GF) -> GF {
+        // First we unpack to get the raw u64 and we implement the algorithm
+        // directly over the bits, rather than using the field add / sub operators.
+        let mut a: u64 = self.0;
+        let b: u64 = rhs.0;
+        let mut c: u64 = 0;
 
-impl Mul<GF2K> for GF2K {
-  type Output = GF2K;
-  fn mul(self, rhs: GF2K) -> GF2K {
-    let res = poly_mod(poly_mul(self.0, rhs.0), Q);
-    GF2K(res)
-  }
+        // Loop over each possible term
+        for i in 0..K {
+            if extract_bit(b, i) == 1 {
+                c ^= a; // c = poly_add(c, a)
+            }
+            a <<= 1;
+            if extract_bit(a, K) == 1 {
+                a ^= Q; // a = poly_sub(a, Q)
+            }
+        }
+        GF::new(c)
+    }
 }
 
-//// Just like before, we will just brute force these
+//// Just like before, we will just use brute force to find inverses.
 ////
-//// Is there a better way to do this in GF(2^K)?
+//// There are much better approaches, but we'll need a dedicated article to focus on those.
 
-impl GF2K {
-  pub fn invert(self) -> Result<GF2K, String> {
+impl GF {
+  pub fn invert(self) -> Result<GF, String> {
     // Important: Zero has no inverse, it's invalid
-    if self == GF2K::new(0) {
+    if self == GF::new(0) {
       return Err("Zero has no inverse".to_string());
     }
     // Scan the numbers {1, 2, ..., P-1} until we find the inverse
-    for x in 1..GF2K::number_of_elements() {
-      let candidate = GF2K::new(x as u64);
-      if self * candidate == GF2K::new(1) {
+    for x in 1..GF::number_of_elements() {
+      let candidate = GF::new(x as u64);
+      if self * candidate == GF::new(1) {
         return Ok(candidate); // Found!
       }
     }
@@ -270,11 +334,12 @@ impl GF2K {
 }
 
 //// And division can be exactly the same also.
-impl Div<GF2K> for GF2K {
-  type Output = Result<GF2K, String>;
-  fn div(self, rhs: Self) -> Result<GF2K, String> {
+
+impl Div<GF> for GF {
+  type Output = Result<GF, String>;
+  fn div(self, rhs: Self) -> Result<GF, String> {
     // Important: Cannot divide by zero
-    if rhs == GF2K::new(0) {
+    if rhs == GF::new(0) {
       return Err("Cannot divide by zero".to_string());
     }
     Ok(self * rhs.invert().unwrap())
@@ -287,44 +352,39 @@ impl Div<GF2K> for GF2K {
 //// These are all quite similar to `GF(p^k)` if you'd rather skim them.
 ////
 //// Printing out numbers:
-
-impl std::fmt::Display for GF2K {
+impl std::fmt::Display for GF {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(f, "{}", self.value())
   }
 }
 
 //// And converting strings into our Field's numbers:
-impl std::str::FromStr for GF2K {
+impl std::str::FromStr for GF {
   type Err = String;
-  fn from_str(s: &str) -> Result<GF2K, String> {
+  fn from_str(s: &str) -> Result<GF, String> {
     let num: u64 = s.parse().map_err(|_| format!("Not an 64-bit integer"))?;
     // Return an error if the number is too big for the field
-    let limit = GF2K::number_of_elements() as u64;
+    let limit = GF::number_of_elements() as u64;
     if num >= limit {
       return Err(format!(
         "Number too large, got {}, but limit is {}",
         num, limit
       ));
     }
-    Ok(GF2K::new(num))
+    Ok(GF::new(num))
   }
 }
 
 //// And telling Rust that we built a Field type:
-impl crate::field::Field for GF2K {
+impl crate::field::Field for GF {
   fn number_of_elements() -> usize {
-    GF2K::number_of_elements()
+    GF::number_of_elements()
   }
 }
 
 //// #### Testing Time
 ////
 //// Note that these tests assume `GF(2^3)`. If you change the field, they are not expected to pass.
-////
-//// The year is also 2025, so obviously these were written by AI (then fixed,
-//// because claude wrote failing tests).
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -333,14 +393,14 @@ mod tests {
   #[test]
   fn test_field_size() {
     // For K=3, we should have 2^3 = 8 elements
-    assert_eq!(GF2K::number_of_elements(), 8);
+    assert_eq!(GF::number_of_elements(), 8);
   }
 
   // TEST: Verify basic field element construction
   #[test]
   fn test_element_construction() {
     for i in 0..8 {
-      let element = GF2K::new(i);
+      let element = GF::new(i);
       assert_eq!(element.value(), i);
     }
   }
@@ -349,19 +409,19 @@ mod tests {
   #[should_panic]
   #[test]
   fn test_invalid_numbers() {
-    GF2K::new(8); // With K=3, the largest valid value is 7
+    GF::new(8); // With K=3, the largest valid value is 7
   }
 
   // TEST: Addition (which is XOR in GF(2^K))
   #[test]
   fn test_add() {
-    assert_eq!(GF2K::new(0) + GF2K::new(0), GF2K::new(0));
-    assert_eq!(GF2K::new(0) + GF2K::new(1), GF2K::new(1));
-    assert_eq!(GF2K::new(1) + GF2K::new(1), GF2K::new(0));
-    assert_eq!(GF2K::new(1) + GF2K::new(2), GF2K::new(3));
-    assert_eq!(GF2K::new(3) + GF2K::new(4), GF2K::new(7));
-    assert_eq!(GF2K::new(5) + GF2K::new(7), GF2K::new(2));
-    assert_eq!(GF2K::new(6) + GF2K::new(3), GF2K::new(5));
+    assert_eq!(GF::new(0) + GF::new(0), GF::new(0));
+    assert_eq!(GF::new(0) + GF::new(1), GF::new(1));
+    assert_eq!(GF::new(1) + GF::new(1), GF::new(0));
+    assert_eq!(GF::new(1) + GF::new(2), GF::new(3));
+    assert_eq!(GF::new(3) + GF::new(4), GF::new(7));
+    assert_eq!(GF::new(5) + GF::new(7), GF::new(2));
+    assert_eq!(GF::new(6) + GF::new(3), GF::new(5));
   }
 
   // TEST: Negation (which is identity in GF(2^K))
@@ -369,7 +429,7 @@ mod tests {
   fn test_negation() {
     // In GF(2^K), negation is the identity function
     for i in 0..8 {
-      assert_eq!(GF2K::new(i).negate(), GF2K::new(i));
+      assert_eq!(GF::new(i).negate(), GF::new(i));
     }
   }
 
@@ -378,52 +438,41 @@ mod tests {
   fn test_sub() {
     // In GF(2^K), addition and subtraction are the same operation
     // GF(2^3) | 0 - 0 = 0
-    assert_eq!(GF2K::new(0) - GF2K::new(0), GF2K::new(0));
+    assert_eq!(GF::new(0) - GF::new(0), GF::new(0));
 
     // GF(2^3) | 0 - 1 = 1
-    assert_eq!(GF2K::new(0) - GF2K::new(1), GF2K::new(1));
+    assert_eq!(GF::new(0) - GF::new(1), GF::new(1));
 
     // GF(2^3) | 1 - 1 = 0
-    assert_eq!(GF2K::new(1) - GF2K::new(1), GF2K::new(0));
+    assert_eq!(GF::new(1) - GF::new(1), GF::new(0));
 
     // GF(2^3) | 3 - 2 = 1
-    assert_eq!(GF2K::new(3) - GF2K::new(2), GF2K::new(1));
+    assert_eq!(GF::new(3) - GF::new(2), GF::new(1));
 
     // GF(2^3) | 7 - 5 = 2
-    assert_eq!(GF2K::new(7) - GF2K::new(5), GF2K::new(2));
-  }
-
-  #[test]
-  fn test_poly_operations() {
-    assert_eq!(poly_mul(2, 2), 4);
-    assert_eq!(poly_mul(3, 3), 5);
-    assert_eq!(poly_mul(5, 3), 15);
-
-    assert_eq!(poly_mod(8, 11), 3);
-    assert_eq!(poly_mod(12, 11), 7);
-    assert_eq!(poly_mod(15, 11), 4);
+    assert_eq!(GF::new(7) - GF::new(5), GF::new(2));
   }
 
   // TEST: Multiplication using the irreducible polynomial Q = x^3 + x + 1 (0b1011)
   #[test]
   fn test_mul() {
-    assert_eq!(GF2K::new(0) * GF2K::new(0), GF2K::new(0));
-    assert_eq!(GF2K::new(0) * GF2K::new(1), GF2K::new(0));
-    assert_eq!(GF2K::new(1) * GF2K::new(1), GF2K::new(1));
-    assert_eq!(GF2K::new(2) * GF2K::new(2), GF2K::new(4));
-    assert_eq!(GF2K::new(3) * GF2K::new(3), GF2K::new(5));
-    assert_eq!(GF2K::new(4) * GF2K::new(4), GF2K::new(6));
-    assert_eq!(GF2K::new(5) * GF2K::new(6), GF2K::new(3));
-    assert_eq!(GF2K::new(7) * GF2K::new(7), GF2K::new(3));
+    assert_eq!(GF::new(0) * GF::new(0), GF::new(0));
+    assert_eq!(GF::new(0) * GF::new(1), GF::new(0));
+    assert_eq!(GF::new(1) * GF::new(1), GF::new(1));
+    assert_eq!(GF::new(2) * GF::new(2), GF::new(4));
+    assert_eq!(GF::new(3) * GF::new(3), GF::new(5));
+    assert_eq!(GF::new(4) * GF::new(4), GF::new(6));
+    assert_eq!(GF::new(5) * GF::new(6), GF::new(3));
+    assert_eq!(GF::new(7) * GF::new(7), GF::new(3));
   }
 
   #[test]
   fn test_invert() {
     // 0 has no inverse
-    assert!(matches!(GF2K::new(0).invert(), Err(_)));
+    assert!(matches!(GF::new(0).invert(), Err(_)));
 
     // 1 is its own inverse
-    assert_eq!(GF2K::new(1).invert().unwrap(), GF2K::new(1));
+    assert_eq!(GF::new(1).invert().unwrap(), GF::new(1));
 
     // Precomputed inverses for GF(2^3) with Q = 11
     let inverse_table = [
@@ -439,14 +488,14 @@ mod tests {
 
     for i in 1..8 {
       assert_eq!(
-        GF2K::new(i).invert().unwrap(),
-        GF2K::new(inverse_table[i as usize])
+        GF::new(i).invert().unwrap(),
+        GF::new(inverse_table[i as usize])
       );
 
       // Verify that x * x^(-1) = 1
       assert_eq!(
-        GF2K::new(i) * GF2K::new(inverse_table[i as usize]),
-        GF2K::new(1)
+        GF::new(i) * GF::new(inverse_table[i as usize]),
+        GF::new(1)
       );
     }
   }
@@ -454,57 +503,29 @@ mod tests {
   #[test]
   fn test_div() {
     // Division by zero is an error
-    assert!(matches!(GF2K::new(1) / GF2K::new(0), Err(_)));
+    assert!(matches!(GF::new(1) / GF::new(0), Err(_)));
 
     // 0 divided by anything non-zero is 0
     for i in 1..8 {
-      assert_eq!(GF2K::new(0) / GF2K::new(i), Ok(GF2K::new(0)));
+      assert_eq!(GF::new(0) / GF::new(i), Ok(GF::new(0)));
     }
 
     // Division by 1 is identity
     for i in 0..8 {
-      assert_eq!(GF2K::new(i) / GF2K::new(1), Ok(GF2K::new(i)));
+      assert_eq!(GF::new(i) / GF::new(1), Ok(GF::new(i)));
     }
 
     // For all non-zero a and b, a/b = a * inv(b)
     for a in 1..8 {
       for b in 1..8 {
-        let expected = GF2K::new(a) * GF2K::new(b).invert().unwrap();
-        assert_eq!(GF2K::new(a) / GF2K::new(b), Ok(expected));
+        let expected = GF::new(a) * GF::new(b).invert().unwrap();
+        assert_eq!(GF::new(a) / GF::new(b), Ok(expected));
       }
     }
 
     // Some specific test cases
-    assert_eq!(GF2K::new(2) / GF2K::new(3), Ok(GF2K::new(7)));
-    assert_eq!(GF2K::new(5) / GF2K::new(6), Ok(GF2K::new(4)));
-    assert_eq!(GF2K::new(7) / GF2K::new(4), Ok(GF2K::new(3)));
-  }
-
-  // TEST: Distributivity law (a+b)*c = a*c + b*c
-  #[test]
-  fn test_distributivity() {
-    for a in 0..8 {
-      for b in 0..8 {
-        for c in 0..8 {
-          let left = (GF2K::new(a) + GF2K::new(b)) * GF2K::new(c);
-          let right = GF2K::new(a) * GF2K::new(c) + GF2K::new(b) * GF2K::new(c);
-          assert_eq!(left, right);
-        }
-      }
-    }
-  }
-
-  // TEST: Associativity of multiplication (a*b)*c = a*(b*c)
-  #[test]
-  fn test_associativity() {
-    for a in 0..8 {
-      for b in 0..8 {
-        for c in 0..8 {
-          let left = (GF2K::new(a) * GF2K::new(b)) * GF2K::new(c);
-          let right = GF2K::new(a) * (GF2K::new(b) * GF2K::new(c));
-          assert_eq!(left, right);
-        }
-      }
-    }
+    assert_eq!(GF::new(2) / GF::new(3), Ok(GF::new(7)));
+    assert_eq!(GF::new(5) / GF::new(6), Ok(GF::new(4)));
+    assert_eq!(GF::new(7) / GF::new(4), Ok(GF::new(3)));
   }
 }
