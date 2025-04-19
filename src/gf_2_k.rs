@@ -73,11 +73,11 @@ pub const Q: u64 = 11; // Default: x^3 + x + 1
 //// This is slightly different than the previous integer representation
 //// conversion scheme we used for `GF(p^k)`.
 
-//// <i><u>Exercise:</u></i> Convert 32 to a polynomial in `GF(2)[x]`, then convert to binary</br>
+//// <i><u>Exercise:</u></i> Convert 32 to a polynomial in `GF(2)[x]`, then convert to binary
 
-//// <p><i><u>Exercise:</u></i> Convert 31 to a polynomial in `GF(2)[x]`, then convert to binary</p>
+//// <i><u>Exercise:</u></i> Convert 31 to a polynomial in `GF(2)[x]`, then convert to binary
 
-//// <p><i><u>Exercise:</u></i> Convert the polynomial x^4 + x in `GF(2)[x]` to binary, then convert to decimal</p>
+//// <i><u>Exercise:</u></i> Convert the polynomial x^4 + x in `GF(2)[x]` to binary, then convert to decimal
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GF(u64);
