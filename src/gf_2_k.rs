@@ -82,13 +82,12 @@ pub const Q: u64 = 11; // Default: x^3 + x + 1
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GF(u64);
 
-//// The basic utility functions are very straightforward now:
-
+//// The basic utility functions are very straightforward.
 impl GF {
   pub fn new(val: u64) -> GF {
-    // Sanity check!
-    assert!((val as usize) < GF::number_of_elements());
-    GF(val)
+      // Sanity check!
+      assert!((val as usize) < GF::number_of_elements());
+      GF(val)
   }
 
   pub fn number_of_elements() -> usize {
@@ -312,28 +311,55 @@ impl Mul<GF> for GF {
     }
 }
 
-//// Just like before, we will just use brute force to find inverses.
+//// #### Multiplicative Inverses using a Lookup Table
 ////
-//// There are much better approaches, but we'll need a dedicated article to focus on those.
+//// We could use brute force (on demand) to find inverses just like before, but in applications this can be slow.
+//// Instead, we'll precompute all inverses into a lookup-table on initialization.
+////
+//// NOTE: We are doing this lookup-table computation at runtime for simplicity, but in many implementations the lookup-tables are pre-computed before runtime.
+
+static INVERSE_LUT: std::sync::OnceLock<Vec<GF>> = std::sync::OnceLock::new();
 
 impl GF {
-  pub fn invert(self) -> Result<GF, String> {
-    // Important: Zero has no inverse, it's invalid
-    if self == GF::new(0) {
-      return Err("Zero has no inverse".to_string());
+    fn get_inverse_lut() -> &'static [GF] {
+        INVERSE_LUT.get_or_init(|| {
+            // Build up the inverse table using brute force
+            let mut lut = vec![];
+            lut.resize(GF::number_of_elements(), GF::new(0));
+
+            // Find the inverse for each of the numbers {1, 2, ..., N-1}
+            for x in 1..GF::number_of_elements() {
+                // Scan the numbers {1, 2, ..., N-1} until we find the inverse
+                let x = GF::new(x as u64);
+                let mut found = false;
+                for y in 1..GF::number_of_elements() {
+                    let y = GF::new(y as u64);
+                    if x * y == GF::new(1) {
+                        lut[x.0 as usize] = y;
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    unreachable!("Every non-zero number has an inverse");
+                }
+            }
+
+            lut
+        })
     }
-    // Scan the numbers {1, 2, ..., P-1} until we find the inverse
-    for x in 1..GF::number_of_elements() {
-      let candidate = GF::new(x as u64);
-      if self * candidate == GF::new(1) {
-        return Ok(candidate); // Found!
-      }
+
+    pub fn invert(self) -> Result<GF, String> {
+        // Important: Zero has no inverse, it's invalid
+        if self == GF::new(0) {
+            return Err("Zero has no inverse".to_string());
+        }
+        // Perform a lookup in the pre-computed table
+        Ok(GF::get_inverse_lut()[self.0 as usize])
     }
-    unreachable!("Every non-zero number has an inverse");
-  }
 }
 
-//// And division can be exactly the same also.
+//// Division is the same as in previous fields: invert and multiply
 
 impl Div<GF> for GF {
   type Output = Result<GF, String>;
@@ -380,6 +406,15 @@ impl crate::field::Field for GF {
   fn number_of_elements() -> usize {
     GF::number_of_elements()
   }
+}
+
+//// Finally, we add a helper method for pre-computing any lookup-tables before beginning field calculations.
+//// Calling this is optional as the library will generate tables on first use. But this can be useful for
+//// making calculations more deterministic.
+impl GF {
+    pub fn initialize_all_lookup_tables() {
+        GF::get_inverse_lut();
+    }
 }
 
 //// #### Testing Time
