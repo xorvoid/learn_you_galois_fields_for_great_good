@@ -1,12 +1,10 @@
 //// #### Implementing Binary Fields GF(2^k)
 ////
 //// After implementing the general `GF(p^k)` Fields, why would we implement a special case?
-//// Can't we just use that implemention, configured for `p = 2`?
+//// Can't we just use that implementation, configured for `p = 2`?
 ////
-//// Fair question. You could indeed use it. But, often it's a bit overkill and significantly
+//// Fair question. You could indeed use it. But, often it's overkill and much
 //// better implementations exist for `GF(2^k)`
-////
-//// Let us explain.
 ////
 //// Recall that we used a vector representation for `GF(p^k)`. In computer memory, this was an
 //// array of bytes: one byte per coefficient. What happens when we use `p = 2`?  Well, it becomes
@@ -14,10 +12,9 @@
 ////
 //// *An Ordinary Binary Number*
 ////
-//// Consider an 8-bit unsigned integer (`u8`), we can view this as a *vector of 8 bits*.
-//// Similarly, a 16-bit unsigned integer (`u16`) can be viewed as a *vector of 16 bits*. And so on!
+//// A *vector of 8 bits* is the same as an 8-bit unsigned integer (`u8`). And, a *vector of 16 bits* is the same as a 16-bit unsigned integer (`u16`)
 ////
-//// Let's also review the coefficent field `GF(2)`. Here are the addition and multiplication tables.
+//// Let's also review the coefficient field `GF(2)`. Here are the addition and multiplication tables.
 //// You may wish to review [section 2](galois_fields_for_great_good_02.html) and [section 3](galois_fields_for_great_good_03.html):
 ////
 //// Addition:
@@ -34,14 +31,14 @@
 ////  **0**  |    0    |   0
 ////  **1**  |    0    |   1
 ////
-//// <i><u>Exercise:</u></i> These correspond to two very well-known common bitwise operations, which are they?
+//// <i><u>Exercise:</u></i> These correspond to two very well-known bitwise operations, which are they?
 ////
 //// That's right! Addition is a bitwise XOR and Multiplication is a bitwise AND!
 ////
 //// Nifty, huh?
 ////
 //// All of these properties make `GF(2^k)` fields incredibly useful for computer science applications as
-//// they map very well onto ordinary binary-state transistor computers.
+//// they map very well onto ordinary binary-based computers.
 ////
 //// #### Enough chatter, let's go code!
 ////
@@ -62,22 +59,21 @@ use std::ops::{Add, Div, Mul, Sub};
 //// Feel free change the parameters to get a different field. But, please do be careful to configure
 //// correctly. Most notably: `Q` must be irreducible.
 
-pub const K: usize = 3; // Must be less-or-equal 64, as we are using u64 for the bitvector
+pub const K: usize = 3; // Must be less-or-equal 64, as we are using u64 for the bit-vector
 pub const Q: u64 = 11; // Default: x^3 + x + 1
 
-//// We will store polynomials as a single u64 because all of our polynomial coefficients
-//// are in {0,1}
+//// We will store polynomials as a single `u64` because each of our polynomial coefficients
+//// can be represented by a single bit.
 ////
-//// For example `x^3 + x^2 (+ 0x) + 1` can be represented as `0b1101` or as `13` in decimal
+//// For example `x^3 + x^2 (+ 0x) + 1` can be represented as `0b1101` (4 bits) or as `13` in decimal
 ////
-//// This is slightly different than the previous integer representation
-//// conversion scheme we used for `GF(p^k)`.
+//// <i><u>Exercise:</u></i> Convert 32 to a polynomial in `GF(2)[x]`, then convert to binary. How many bits are required?
 
-//// <i><u>Exercise:</u></i> Convert 32 to a polynomial in `GF(2)[x]`, then convert to binary
+//// <i><u>Exercise:</u></i> Convert 31 to a polynomial in `GF(2)[x]`, then convert to binary. How many bits are required?
 
-//// <i><u>Exercise:</u></i> Convert 31 to a polynomial in `GF(2)[x]`, then convert to binary
+//// <i><u>Exercise:</u></i> Convert the polynomial x^4 + x in `GF(2)[x]` to binary, then convert to decimal. How many bits are required?
 
-//// <i><u>Exercise:</u></i> Convert the polynomial x^4 + x in `GF(2)[x]` to binary, then convert to decimal
+//// Let's now define our number type using a `u64` to store our bit-vector:
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GF(u64);
@@ -103,13 +99,13 @@ impl GF {
 
 //// #### Addition in `GF(2^k)`
 ////
-//// Recall that polynomial addition is pointwise addition of coefficents. Since addition in `GF(2)` is an XOR, it is also in `GF(2^k)`:
+//// Recall that polynomial addition is point-wise addition of coefficients. Since addition in `GF(2)` is an XOR, it is also in `GF(2^k)`:
 ////
 //// ```text
-////          1x^2 + 1x + 1   =>    0b0111
-//// + 1x^3 + 0x^2 + 1x + 1   => ^  0b1011
+////          1x^2 + 1x + 1   =>    0111
+//// + 1x^3 + 0x^2 + 1x + 1   => ^  1011
 //// ----------------------      ---------
-////   1x^3 + 1x^2 + 0x + 0  =>     0b1100
+////   1x^3 + 1x^2 + 0x + 0  =>     1100
 //// ```
 
 //// In code, this is simply:
@@ -123,13 +119,13 @@ impl Add<GF> for GF {
 
 //// #### Negation and Subtraction in `GF(2^k)`
 ////
-//// To negate, we want the value b, such that a+b=0
+//// To negate, we want the value b, such that `a+b=0`
 ////
-//// <i><u>Exercise:</u></i> Look at the addition table for `GF(2)`. For each number, what is it's negation?
+//// <i><u>Exercise:</u></i> Look at the addition table for `GF(2)`. For each number, what is its negation? Is there a simple rule for negation?
 ////
 //// That's right, the negation of a number in `GF(2)` is itself. Negation is an identity operation! And, in `GF(2^k)` it is the same also.
 ////
-//// So, we have the simple implementation for negation:
+//// So, we have a trivial implementation for negation:
 
 impl GF {
   pub fn negate(self) -> GF {
@@ -137,14 +133,16 @@ impl GF {
   }
 }
 
-//// A fascinating consequence of this is that subtraction and addition are the same operation. Just an XOR!
+//// A fascinating consequence is that subtraction and addition are the exact same operation. Just an XOR!
 ////
-//// Here, we'll write the subtraction implementation as we have for other fields. But, in many optimized implementations, the same routine as addition is used!
+//// <i><u>Exercise:</u></i> Convince yourself of this fact using the identity `a - b = a + (-b)`
+////
+//// Let's implement it the same way we implemented addition:
 
 impl Sub<GF> for GF {
     type Output = GF;
     fn sub(self, rhs: GF) -> GF {
-        self + rhs.negate() // or `self + rhs` or `self.0 ^ rhs.0`
+        GF::new(self.0 ^ rhs.0)
     }
 }
 
@@ -154,19 +152,19 @@ impl Sub<GF> for GF {
 ////
 //// For `GF(p^k)` we implemented multiplication as two-steps:
 ////
-////   1. Convolution of coefficents yielding `2k` new coefficents
-////   2. Polynomial modulus reduction to `k` coefficents
+////   1. Convolution of coefficients yielding `2k` new coefficients
+////   2. Polynomial modulus reduction to `k` coefficients
 ////
-//// For `GF(2^k)` we could do exactly the same thing but we can simplify by better utilizing bitwise operations.
+//// For `GF(2^k)` we could do exactly the same thing, but we can simplify by better utilizing bitwise operations.
 ////
 //// First let's recall the two operations we used in reduction for `GF(p^k)`:
 ////
 //// - `shift`: Multiplying by a monomial in `(1, x, x^2, x^3, ...etc...)` is a simple shift of the coefficient array
-//// - `scale`: Multiplying by any scalar is a simple pointwise-coefficient multiply.
+//// - `scale`: Multiplying by any scalar is a simple point-wise coefficient multiply.
 ////
 //// For `GF(2^k)` these operations simplify:
 ////
-//// - `shift`: Shifting the coefficent array is just performing a "bit-shift" (i.e. `<<` or `>>`)
+//// - `shift`: Shifting the coefficient array is just performing a "bit-shift" (i.e. `<<`)
 //// - `scale`: Scaling means multiplying by 0 or 1, this is a "selection operation" (i.e. `if (not_zero) use_it()`)
 ////
 //// <i><u>Exercise:</u></i> Convince yourself that these are equivalent operations for `GF(2^k)`?
@@ -176,14 +174,14 @@ impl Sub<GF> for GF {
 ////
 //// Another way to perform polynomial multiplication is to decompose it into a several simpler products using the distribution law.
 ////
-//// Consider polynomials `a` and `b` and we wish to obtain `a*b`. If we expand polynomial `b`, we have:
+//// Consider polynomials `a` and `b` and we wish to obtain `a*b`. If we expand polynomial `b` and distribute, we have:
 ////
 //// ```text
 //// a * b = a * (b_n x^n + ... + b_1 x + b_0)
 ////       = b_n * a * x^n + ... + b_1 * a * x + b_0 * a
 //// ```
 ////
-//// As discussed in the previous section, multiplying by a monomial (e.g. `x^k`) is a simple coefficent shift operation.
+//// As discussed in the previous section, multiplying by a monomial (e.g. `x^k`) is a simple coefficient shift operation.
 ////
 //// Thus, we'll use the notation:
 //// ```text
@@ -195,11 +193,11 @@ impl Sub<GF> for GF {
 //// a * b = b_n * (a << n) + ... + b_1 * (a << 1) + b_0 * (a << 0)
 //// ```
 ////
-//// Now observe that for coefficents in `GF(2)`, `b_i` is in the set `{0, 1}`. This means that in the above decomposition, there is no coefficent multiplication. Instead, we either add the term to the result or we skip it (selection).
+//// Now observe that for coefficients in `GF(2)`, `b_i` is in the set `{0, 1}`. This means that in the above decomposition, there is no coefficient multiplication. Instead, we either add the term to the result or we skip it (selection).
 ////
 //// As an example, consider:
 //// ```text
-//// b = x^5 + x^3 + 1  (or 0b101001)
+//// b = x^5 + x^3 + 1  (or 101001)
 //// ```
 ////
 //// Then, our decomposition is:
@@ -207,7 +205,7 @@ impl Sub<GF> for GF {
 //// a * b = (a << 5) + (a << 3) + (a << 0)
 //// ```
 ////
-//// In other words, we simply sum all shifts, but skip anywhere the coefficent is 0.
+//// In other words, we simply sum all shifts, but skip anywhere the coefficient is 0.
 ////
 //// In pseudocode, we have:
 ////
@@ -215,14 +213,14 @@ impl Sub<GF> for GF {
 //// c = 0
 //// for i in 0..k:
 ////   if extract_bit(b, i) == 1:
-////     c = poly_add(c, a)   ## c ^= a
+////     c = poly_add(c, a)
 ////   a = a << 1
 //// return c
 //// ```
 ////
 //// Here, we iterate through each possible term (`a << i`) one at a time. Then, we select the terms that we need and add them.
 ////
-//// <i><u>Exercise:</u></i> Think about this algorithm a bit. Convince yourself it is correct. Why is this a
+//// <i><u>Exercise:</u></i> Think about this algorithm a bit. Convince yourself it is correct. Why is this equivalent to a convolution? Why can't general `GF(p^k)` fields use this algorithm?
 ////
 //// <i><u>Exercise:</u></i> This algorithm appears to only consider `n` terms, but a convolution involves `O(n^2)` terms. What's going on here?
 ////
@@ -230,7 +228,7 @@ impl Sub<GF> for GF {
 ////
 //// #### Applying the polynomial reduction
 ////
-//// To complete the multiplication, we need to apply the polynomial reduction. We could do this in the same way as our `GF(p^k)` implementation, but
+//// To complete the multiplication, we need to apply the polynomial reduction by `Q`. We could do this in the same way as our `GF(p^k)` implementation, but
 //// there's a better approach that allows us to integrate this operation into the above algorithm.
 ////
 //// The first observation is that we never need to apply a reduction after an addition in `GF(2^k)`. This means that in the above algorithm, we only have to
@@ -240,39 +238,40 @@ impl Sub<GF> for GF {
 //// these `k` reductions is a much simper and faster operation.
 ////
 //// If `a` is in `GF(2^k)`, then it can be represented by at most `k` bits. Thus, `a << 1` can be represented in
-//// at most `k + 1` bits. This means that we only have to consider the most-significant-bit. If it is set, we simply need to subtract off `Q` (the irreducible polynomial) to obtain just `k` bits.
+//// at most `k + 1` bits. This means that we only have to consider the most-significant-bit (MSB) to reduce from `k+1` bits to `k` bits.
+//// If the MSB is set, we simply need to subtract off `Q` (the irreducible polynomial).
 ////
 //// Let's do an example using:
 //// ```text
 //// K = 3
-//// Q = x^3 + x + 1  (0b1011)
-//// A = x^2 + x      (0b0110)
+//// Q = x^3 + x + 1  (1011)
+//// A = x^2 + x      (0110)
 //// ```
 ////
 //// Step by step:
 ////
-//// | Iter # | `A`      | `A << 1` | `(A << 1) % Q`  |
-//// |--------|----------|----------|-----------------|
-//// |   `1`  | `0b0110` | `0b1100` | `0b0111`        |
-//// |   `2`  | `0b0111` | `0b1110` | `0b0101`        |
-//// |   `3`  | `0b0101` | `0b1010` | `0b0001`        |
-//// |   `4`  | `0b0001` | `0b0010` | `0b0010`        |
-//// |   `5`  | `0b0010` | `0b0100` | `0b0100`        |
-//// |   `6`  | `0b0100` | `0b1000` | `0b0011`        |
-//// |   `7`  | `0b0011` | `0b0110` | `0b0110`        |
+//// | Iter # | `A`    | `A << 1` | `(A << 1) % Q` |
+//// |--------|--------|----------|----------------|
+//// |   `1`  | `0110` | `1100`   | `0111`         |
+//// |   `2`  | `0111` | `1110`   | `0101`         |
+//// |   `3`  | `0101` | `1010`   | `0001`         |
+//// |   `4`  | `0001` | `0010`   | `0010`         |
+//// |   `5`  | `0010` | `0100`   | `0100`         |
+//// |   `6`  | `0100` | `1000`   | `0011`         |
+//// |   `7`  | `0011` | `0110`   | `0110`         |
 ////
 //// As you can see, when the most-significant-bit is set (iters 1,2,3,6), we subtract off `Q` (XOR).
 //// And, when the most-significant-bit is clear (iters 4,5,7), we do nothing.
 ////
-//// <i><u>Exercise:</u></i> Work through an iteration table using A = x^2 + 1 (0b1001) instead.
+//// <i><u>Exercise:</u></i> Work through an iteration table using `A = x^2 + 1 (1001)` instead.
 ////
-//// Let's add this reduction step to out multiplication algorithm:
+//// Let's add this reduction step to our multiplication algorithm:
 ////
 //// ```text
 //// c = 0
 //// for i in 0..k:
 ////   if extract_bit(b, i) == 1:
-////     c = poly_add(c, a)   ## c ^= a
+////     c = poly_add(c, a)
 ////   a = a << 1
 ////   if extract_bit(a, k) == 1:
 ////     a = poly_sub(a, q)
@@ -281,7 +280,7 @@ impl Sub<GF> for GF {
 ////
 //// <i><u>Exercise:</u></i> Make sure you fully understand the algorithm before proceeding.
 ////
-//// Okay, lets get back to coding!
+//// Okay, let's get back to coding!
 ////
 
 fn extract_bit(n: u64, i: usize) -> u64 {
@@ -292,7 +291,7 @@ impl Mul<GF> for GF {
     type Output = GF;
     fn mul(self, rhs: GF) -> GF {
         // First we unpack to get the raw u64 and we implement the algorithm
-        // directly over the bits, rather than using the field add / sub operators.
+        // directly over the bits, rather than using the field's add/sub operators.
         let mut a: u64 = self.0;
         let b: u64 = rhs.0;
         let mut c: u64 = 0;
@@ -313,10 +312,19 @@ impl Mul<GF> for GF {
 
 //// #### Multiplicative Inverses using a Lookup Table
 ////
-//// We could use brute force (on demand) to find inverses just like before, but in applications this can be slow.
-//// Instead, we'll precompute all inverses into a lookup-table on initialization.
+//// We now turn to multiplicative inverses. In previous implementations, we simply used brute force search whenever an inverse was needed.
+//// There are better approaches to finding inverses, but we'll need a dedicated article to adequately cover them.
 ////
-//// NOTE: We are doing this lookup-table computation at runtime for simplicity, but in many implementations the lookup-tables are pre-computed before runtime.
+//// For now, we'll introduce a new, highly practical, technique used instead of fancy algorithms: Lookup Tables.
+////
+//// Essentially, we precompute the answers to all possible inverses and store them in a table. When an inverse is needed, we simply look the answer up in memory.
+//// This technique still requires having some method to compute the right answer, but if that method is slow and inefficient we can run it "offline". Then, when doing
+//// computations, performance is instead determined by the computer's memory subsystem.
+////
+//// In this implementation, we'll build the lookup table at the beginning of runtime. It's more common to pre-compute them at compile-time or to generate the tables with
+//// an auxiliary program and copy them into source code. But, for simplicity we'll avoid doing that here.
+////
+//// Feel free to improve this for your own needs!
 
 static INVERSE_LUT: std::sync::OnceLock<Vec<GF>> = std::sync::OnceLock::new();
 
