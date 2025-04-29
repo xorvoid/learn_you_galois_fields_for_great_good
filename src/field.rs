@@ -9,7 +9,7 @@ pub trait Field:
   Add<Output=Self> +
   Mul<Output=Self> +
   Sub<Output=Self> +
-  Div<Output=Result<Self, String>> +
+  Div<Output=Self> +
   Copy + Clone + PartialEq +
   std::str::FromStr<Err=String> + std::fmt::Display
 {

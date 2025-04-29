@@ -146,10 +146,17 @@ impl std::str::FromStr for GF {
     if num >= limit {
       return Err(format!(
         "Number too large, got {}, but limit is {}",
-        num, limit
+        num, limit-1
       ));
     }
     Ok(GF::new(num as u8))
+  }
+}
+
+//// And telling Rust that we built a Field type:
+impl crate::field::Field for GF {
+  fn number_of_elements() -> usize {
+    GF::number_of_elements()
   }
 }
 

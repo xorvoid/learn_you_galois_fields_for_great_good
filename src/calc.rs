@@ -184,7 +184,7 @@ fn eval_expr_prec<F: Field>(lex: &mut Lexer<F>, prec: usize) -> Result<F, Error>
       Operator::Add => result + rhs,
       Operator::Sub => result - rhs,
       Operator::Mul => result * rhs,
-      Operator::Div => (result / rhs).map_err(|_| Error::DivisionByZero)?,
+      Operator::Div => result / rhs,
     };
   }
 }
@@ -222,6 +222,7 @@ fn print_operation_table<F: Field>(op: Operator) {
   println!("{}", "-".repeat(7 + 5*n));
 
   // Print each row
+  let zero: F = "0".parse().unwrap();
   for y in 0..n {
     let y_num: F = format!("{}", y).parse().unwrap();
     print!(" {:>3}  | ", y);
@@ -232,7 +233,13 @@ fn print_operation_table<F: Field>(op: Operator) {
         Operator::Add => Ok(y_num + x_num),
         Operator::Sub => Ok(y_num - x_num),
         Operator::Mul => Ok(y_num * x_num),
-        Operator::Div => y_num / x_num,
+        Operator::Div => {
+          if x_num == zero {
+            Err("Division by zero")
+          } else {
+            Ok(y_num / x_num)
+          }
+        }
       };
       let s = match result {
         Ok(num) => format!("{}", num),
@@ -250,32 +257,34 @@ fn read_line() -> String {
   line
 }
 
-pub fn interactive_calculator<F: Field>(name: &str) {
+pub fn interactive_calculator<F: Field>(name: &str, print_tables: bool) {
   let echo_line = match std::env::var("LEARN_YOU_GALOIS_FIELDS_FOR_GREAT_GOOD_CALC_ECHO") {
     Ok(val) => val != "0",
     Err(_) => false,
   };
 
-  println!("{}", "=".repeat(80));
-  println!("A Calculator for {}", name);
-  println!("{}", "=".repeat(80));
-  println!("");
-  println!("Addition Table:");
-  println!("");
-  print_operation_table::<F>(Operator::Add);
-  println!("");
-  println!("Subtraction Table:");
-  println!("");
-  print_operation_table::<F>(Operator::Sub);
-  println!("");
-  println!("Multiplication Table:");
-  println!("");
-  print_operation_table::<F>(Operator::Mul);
-  println!("");
-  println!("Division Table:");
-  println!("");
-  print_operation_table::<F>(Operator::Div);
-  println!("");
+  if print_tables {
+    println!("{}", "=".repeat(80));
+    println!("A Calculator for {}", name);
+    println!("{}", "=".repeat(80));
+    println!("");
+    println!("Addition Table:");
+    println!("");
+    print_operation_table::<F>(Operator::Add);
+    println!("");
+    println!("Subtraction Table:");
+    println!("");
+    print_operation_table::<F>(Operator::Sub);
+    println!("");
+    println!("Multiplication Table:");
+    println!("");
+    print_operation_table::<F>(Operator::Mul);
+    println!("");
+    println!("Division Table:");
+    println!("");
+    print_operation_table::<F>(Operator::Div);
+    println!("");
+  }
   println!("Enter any expression for evaluation (e.g. (1 + 2) * 4)");
   println!("");
 

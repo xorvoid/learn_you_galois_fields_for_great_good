@@ -370,13 +370,13 @@ impl GF {
 //// Division is the same as in previous fields: invert and multiply
 
 impl Div<GF> for GF {
-  type Output = Result<GF, String>;
-  fn div(self, rhs: Self) -> Result<GF, String> {
+  type Output = GF;
+  fn div(self, rhs: Self) -> GF {
     // Important: Cannot divide by zero
-    if rhs == GF::new(0) {
-      return Err("Cannot divide by zero".to_string());
+    if rhs.0 == 0 {
+      panic!("Cannot divide by zero");
     }
-    Ok(self * rhs.invert().unwrap())
+    self * rhs.invert().unwrap()
   }
 }
 
@@ -402,7 +402,7 @@ impl std::str::FromStr for GF {
     if num >= limit {
       return Err(format!(
         "Number too large, got {}, but limit is {}",
-        num, limit
+        num, limit-1
       ));
     }
     Ok(GF::new(num))

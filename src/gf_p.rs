@@ -123,15 +123,15 @@ impl GF {
 //// Similarly to subtraction, we can implement division in terms of multiplication
 //// and inversion since: `a / b = a * inv(b)`
 ////
-//// Notice again that we use a `Result<>` to communicate that division by zero will fail
+//// Notice we that division by zero panics. We expect the user to avoid attempting a divide by zero.
 impl Div<GF> for GF {
-  type Output = Result<GF, String>;
-  fn div(self, rhs: Self) -> Result<GF, String> {
+  type Output = GF;
+  fn div(self, rhs: Self) -> GF {
     // Important: Cannot divide by zero
     if rhs.0 == 0 {
-      return Err("Cannot divide by zero".to_string());
+      panic!("Cannot divide by zero");
     }
-    Ok(self * rhs.invert().unwrap())
+    self * rhs.invert().unwrap()
   }
 }
 

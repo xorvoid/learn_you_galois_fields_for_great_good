@@ -376,13 +376,13 @@ impl GF {
 
 //// And division can be exactly the same also.
 impl Div<GF> for GF {
-  type Output = Result<GF, String>;
-  fn div(self, rhs: Self) -> Result<GF, String> {
+  type Output = GF;
+  fn div(self, rhs: Self) -> GF {
     // Important: Cannot divide by zero
     if rhs == GF::new(0) {
-      return Err("Cannot divide by zero".to_string());
+      panic!("Cannot divide by zero");
     }
-    Ok(self * rhs.invert().unwrap())
+    self * rhs.invert().unwrap()
   }
 }
 
@@ -406,7 +406,7 @@ impl std::str::FromStr for GF {
     // Return an error if the number is too big for the field
     let limit = GF::number_of_elements() as u64;
     if num >= limit {
-      return Err(format!("Number too large, got {}, but limit is {}", num, limit));
+      return Err(format!("Number too large, got {}, but limit is {}", num, limit-1));
     }
     Ok(GF::new(num))
   }
