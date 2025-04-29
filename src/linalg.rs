@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use crate::gf_256::GF;
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Matrix {
@@ -19,6 +19,14 @@ impl Matrix {
     pub fn from_data(rows: usize, cols: usize, dat: Vec<GF>) -> Self {
         assert_eq!(rows * cols, dat.len());
         Self { rows, cols, dat }
+    }
+
+    pub fn shape(&self) -> (usize, usize) {
+        (self.rows, self.cols)
+    }
+
+    pub fn data(&self) -> &[GF] {
+        &self.dat
     }
 }
 
@@ -40,7 +48,51 @@ impl IndexMut<(usize, usize)> for Matrix {
 }
 
 impl Matrix {
-    fn matmul(&self, other: &Matrix) -> Matrix {
+    pub fn slice_rows(&self, r: Range<usize>) -> Matrix {
+        let start = r.start;
+        let end = r.end;
+        assert!(end <= self.rows);
+
+        let new_rows = end - start;
+        let mut out = Matrix::zeros(new_rows, self.cols);
+        for i in 0..new_rows {
+            for j in 0..self.cols {
+                out[(i, j)] = self[(start+i, j)];
+            }
+        }
+
+        out
+    }
+
+    pub fn slice_cols(&self, r: Range<usize>) -> Matrix {
+        let start = r.start;
+        let end = r.end;
+        assert!(end <= self.cols);
+
+        let new_cols = end - start;
+        let mut out = Matrix::zeros(self.rows, new_cols);
+        for i in 0..self.rows {
+            for j in 0..new_cols {
+                out[(i, j)] = self[(i, start+j)];
+            }
+        }
+
+        out
+    }
+}
+
+impl Matrix {
+    pub fn identity(n: usize) -> Self {
+        let mut m = Matrix::zeros(n, n);
+        for i in 0..n {
+            m[(i,i)] = GF::new(1);
+        }
+        m
+    }
+}
+
+impl Matrix {
+    pub fn matmul(&self, other: &Matrix) -> Matrix {
         // Multiply two matrices: (m x n) * (n x p) => (m x p)
         let m = self.rows;
         let n = self.cols;
@@ -62,35 +114,15 @@ impl Matrix {
     }
 }
 
-impl Matrix {
-    fn vandermonde(n: usize, g: GF) -> Matrix {
-        let mut out = Matrix::zeros(n, n);
-        let mut a = g;
-
-        // for each row
-        for i in 0..n {
-            let mut elt = GF::new(1);
-            // for each col
-            for j in 0..n {
-                out[(i,j)] = elt;
-                elt = elt * a;
-            }
-            a = a * g;
-        }
-
-        out
-    }
-}
-
 // LU Factorization
-struct LU {
+pub struct LU {
     lower: Matrix,
     upper: Matrix,
     permute: Vec<usize>, // row permutation map (new_row => old_row)
 }
 
 impl Matrix {
-    fn factor_lu(&self) -> Option<LU> {
+    pub fn factor_lu(&self) -> Option<LU> {
         // Sanity check the shape (square matrix required)
         assert_eq!(self.rows, self.cols);
 
@@ -200,14 +232,13 @@ fn solve_upper_tringular(U: &Matrix, y: &Matrix) -> Matrix {
 
 impl LU {
     // Solve LUx = b
-    fn solve(&self, b: &Matrix) -> Matrix {
+    pub fn solve(&self, b: &Matrix) -> Matrix {
         // Sanity check the shape
         assert!(self.lower.rows == b.rows);
         assert!(self.upper.rows == b.rows);
         assert!(self.upper.rows == self.upper.cols);
         assert!(self.lower.rows == self.lower.cols);
         assert!(b.cols == 1);
-        let n = self.lower.rows;
 
         // Ly = b: Forward solve with lower triangular matrix (using the permutation)
         let y = solve_lower_tringular(&self.lower, b, &self.permute);
@@ -215,15 +246,43 @@ impl LU {
         // Ux = y: Backward solve with upper triangular matrix
         let x = solve_upper_tringular(&self.upper, &y);
 
+        // Done! The result is 'x'
         x
     }
 }
 
 impl Matrix {
     // Solve Ax = b with this matrix
-    fn solve(&self, b: &Matrix) -> Option<Matrix> {
+    pub fn solve(&self, b: &Matrix) -> Option<Matrix> {
         let lu = self.factor_lu()?;
         Some(lu.solve(b))
+    }
+}
+
+impl Matrix {
+    // Compute the inversion of the matrix. Returns None if the matrix is singular.
+    pub fn inverse(&self) -> Option<Matrix> {
+        let lu = self.factor_lu()?;
+
+        assert_eq!(self.rows, self.cols);
+        let n = self.rows;
+
+        let mut inv = Matrix::zeros(n, n);
+        for j in 0..n {
+            // Construct the ith basis vector
+            let mut b = Matrix::zeros(n, 1);
+            b[(j,0)] = GF::new(1);
+
+            // Solve that basis vector
+            let x = lu.solve(&b);
+
+            // Copy the result into the ith column of the inverse matrix
+            for i in 0..n {
+                inv[(i, j)] = x[(i, 0)];
+            }
+        }
+
+        Some(inv)
     }
 }
 
@@ -258,19 +317,66 @@ mod test {
     }
 
     #[test]
+    fn test_slicing() {
+        let m = Matrix::from_data(5, 5, vec![
+            GF::new(45), GF::new(76), GF::new(234), GF::new(100), GF::new(1),
+            GF::new(55), GF::new(123), GF::new(34), GF::new(2), GF::new(12),
+            GF::new(52), GF::new(33), GF::new(203), GF::new(91), GF::new(8),
+            GF::new(6), GF::new(16), GF::new(150), GF::new(160), GF::new(49),
+            GF::new(7), GF::new(85), GF::new(191), GF::new(230), GF::new(96),
+        ]);
+
+        assert_eq!(m.slice_rows(0..5), m);
+        assert_eq!(m.slice_cols(0..5), m);
+
+        assert_eq!(m.slice_rows(1..4), Matrix::from_data(3, 5, vec![
+            GF::new(55), GF::new(123), GF::new(34), GF::new(2), GF::new(12),
+            GF::new(52), GF::new(33), GF::new(203), GF::new(91), GF::new(8),
+            GF::new(6), GF::new(16), GF::new(150), GF::new(160), GF::new(49),
+        ]));
+
+        assert_eq!(m.slice_cols(1..4), Matrix::from_data(5, 3, vec![
+            GF::new(76), GF::new(234), GF::new(100),
+            GF::new(123), GF::new(34), GF::new(2),
+            GF::new(33), GF::new(203), GF::new(91),
+            GF::new(16), GF::new(150), GF::new(160),
+            GF::new(85), GF::new(191), GF::new(230),
+        ]));
+
+        assert_eq!(m.slice_rows(3..3), Matrix::from_data(0, 5, vec![]));
+        assert_eq!(m.slice_cols(0..0), Matrix::from_data(5, 0, vec![]));
+    }
+
+    #[test]
+    fn test_matrix_identity() {
+        assert_eq!(Matrix::identity(2), Matrix::from_data(2, 2, vec![
+            GF::new(1), GF::new(0),
+            GF::new(0), GF::new(1),
+        ]));
+
+        assert_eq!(Matrix::identity(5), Matrix::from_data(5, 5, vec![
+            GF::new(1), GF::new(0), GF::new(0), GF::new(0), GF::new(0),
+            GF::new(0), GF::new(1), GF::new(0), GF::new(0), GF::new(0),
+            GF::new(0), GF::new(0), GF::new(1), GF::new(0), GF::new(0),
+            GF::new(0), GF::new(0), GF::new(0), GF::new(1), GF::new(0),
+            GF::new(0), GF::new(0), GF::new(0), GF::new(0), GF::new(1),
+        ]));
+    }
+
+    #[test]
     fn test_matrix_multiply() {
-        let mut a = Matrix::from_data(3, 2, vec![
+        let a = Matrix::from_data(3, 2, vec![
             GF::new(45), GF::new(89),
             GF::new(2), GF::new(123),
             GF::new(11), GF::new(200),
         ]);
 
-        let mut b = Matrix::from_data(2, 3, vec![
+        let b = Matrix::from_data(2, 3, vec![
             GF::new(8), GF::new(77), GF::new(211),
             GF::new(139), GF::new(3), GF::new(197),
         ]);
 
-        let mut c_expected = Matrix::from_data(3, 3, vec![
+        let c_expected = Matrix::from_data(3, 3, vec![
             GF::new(31), GF::new(180), GF::new(187),
             GF::new(161), GF::new(23), GF::new(17),
             GF::new(186), GF::new(202), GF::new(2),
@@ -280,20 +386,6 @@ mod test {
         assert_eq!(c.rows, c_expected.rows);
         assert_eq!(c.cols, c_expected.cols);
         assert_eq!(c.dat, c_expected.dat);
-    }
-
-    #[test]
-    fn test_vandermonde() {
-        let m = Matrix::vandermonde(5, GF::new(2));
-        assert_eq!(m.rows, 5);
-        assert_eq!(m.cols, 5);
-        assert_eq!(m.dat, vec![
-            GF::new(1), GF::new(2),  GF::new(4),   GF::new(8),   GF::new(16),
-            GF::new(1), GF::new(4),  GF::new(16),  GF::new(64),  GF::new(27),
-            GF::new(1), GF::new(8),  GF::new(64),  GF::new(54),  GF::new(171),
-            GF::new(1), GF::new(16), GF::new(27),  GF::new(171), GF::new(94),
-            GF::new(1), GF::new(32), GF::new(108), GF::new(47),  GF::new(151)
-        ]);
     }
 
     #[test]
@@ -439,8 +531,6 @@ mod test {
             GF::new(10), GF::new(20),
         ]);
 
-        let lu = m.factor_lu().unwrap();
-
         let x1 = Matrix::from_data(2, 1, vec![
             GF::new(67), GF::new(79),
         ]);
@@ -459,4 +549,54 @@ mod test {
         let x = lu.solve(&b2);
         assert_eq!(x, x2);
     }
+
+    #[test]
+    fn test_inverse() {
+        let m = Matrix::from_data(5, 5, vec![
+            GF::new(45), GF::new(76), GF::new(234), GF::new(100), GF::new(1),
+            GF::new(55), GF::new(123), GF::new(34), GF::new(2), GF::new(12),
+            GF::new(52), GF::new(33), GF::new(203), GF::new(91), GF::new(8),
+            GF::new(6), GF::new(16), GF::new(150), GF::new(160), GF::new(49),
+            GF::new(7), GF::new(85), GF::new(191), GF::new(230), GF::new(96),
+        ]);
+
+        let m_inv = m.inverse().unwrap();
+        assert_eq!(m_inv, Matrix::from_data(5, 5, vec![
+            GF::new(99),  GF::new(183), GF::new(91),  GF::new(237), GF::new(66),
+            GF::new(165), GF::new(209), GF::new(224), GF::new(40),  GF::new(12),
+            GF::new(246), GF::new(244), GF::new(219), GF::new(115), GF::new(69),
+            GF::new(205), GF::new(198), GF::new(141), GF::new(69),  GF::new(236),
+            GF::new(210), GF::new(105), GF::new(34),  GF::new(160), GF::new(127),
+        ]));
+
+        assert_eq!(m.matmul(&m_inv), Matrix::identity(5));
+    }
+
+    #[test]
+    fn test_inverse_permute() {
+        let m = Matrix::from_data(2, 2, vec![
+            GF::new(0),  GF::new(5),
+            GF::new(10), GF::new(20),
+        ]);
+
+        let m_inv = m.inverse().unwrap();
+        assert_eq!(m_inv, Matrix::from_data(2, 2, vec![
+            GF::new(164), GF::new(41),
+            GF::new(82),  GF::new(0),
+        ]));
+
+        assert_eq!(m.matmul(&m_inv), Matrix::identity(2));
+    }
+
+    #[test]
+    fn test_inverse_singular() {
+        let m = Matrix::from_data(3, 3, vec![
+            GF::new(45), GF::new(76),  GF::new(234),
+            GF::new(55), GF::new(123), GF::new(34),
+            GF::new(26), GF::new(55),  GF::new(200),  // This row is the sum of the previous two
+        ]);
+
+        assert!(m.inverse().is_none());
+    }
+
 }

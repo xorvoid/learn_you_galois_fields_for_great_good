@@ -261,28 +261,31 @@ mod tests {
   #[test]
   fn test_div() {
     // GF(5) | 0 / 1 = 0
-    assert_eq!(GF::new(0) / GF::new(1), Ok(GF::new(0)));
+    assert_eq!(GF::new(0) / GF::new(1), GF::new(0));
     // GF(5) | 0 / 2 = 0
-    assert_eq!(GF::new(0) / GF::new(2), Ok(GF::new(0)));
-    // GF(5) | 1 / 0 = ERROR
-    assert!(matches!(GF::new(1) / GF::new(0), Err(_)));
-    // GF(5) | 2 / 0 = ERROR
-    assert!(matches!(GF::new(2) / GF::new(0), Err(_)));
+    assert_eq!(GF::new(0) / GF::new(2), GF::new(0));
     // GF(5) | 1 / 1 = 1
-    assert_eq!(GF::new(1) / GF::new(1), Ok(GF::new(1)));
+    assert_eq!(GF::new(1) / GF::new(1), GF::new(1));
     // GF(5) | 1 / 2 = 3
-    assert_eq!(GF::new(1) / GF::new(2), Ok(GF::new(3)));
+    assert_eq!(GF::new(1) / GF::new(2), GF::new(3));
     // GF(5) | 2 / 2 = 1
-    assert_eq!(GF::new(2) / GF::new(2), Ok(GF::new(1)));
+    assert_eq!(GF::new(2) / GF::new(2), GF::new(1));
     // GF(5) | 2 / 3 = 4
-    assert_eq!(GF::new(2) / GF::new(3), Ok(GF::new(4)));
+    assert_eq!(GF::new(2) / GF::new(3), GF::new(4));
     // GF(5) | 3 / 3 = 1
-    assert_eq!(GF::new(3) / GF::new(3), Ok(GF::new(1)));
+    assert_eq!(GF::new(3) / GF::new(3), GF::new(1));
     // GF(5) | 2 / 4 = 3
-    assert_eq!(GF::new(2) / GF::new(4), Ok(GF::new(3)));
+    assert_eq!(GF::new(2) / GF::new(4), GF::new(3));
     // GF(5) | 3 / 4 = 2
-    assert_eq!(GF::new(3) / GF::new(4), Ok(GF::new(2)));
+    assert_eq!(GF::new(3) / GF::new(4), GF::new(2));
     // GF(5) | 4 / 4 = 1
-    assert_eq!(GF::new(4) / GF::new(4), Ok(GF::new(1)));
+    assert_eq!(GF::new(4) / GF::new(4), GF::new(1));
+  }
+
+  // TEST: Division by zero panics
+  #[should_panic]
+  #[test]
+  fn test_div_zero_panic() {
+    let _ = GF::new(2) / GF::new(0);
   }
 }

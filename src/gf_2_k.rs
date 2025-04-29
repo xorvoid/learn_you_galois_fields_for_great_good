@@ -545,30 +545,34 @@ mod tests {
 
   #[test]
   fn test_div() {
-    // Division by zero is an error
-    assert!(matches!(GF::new(1) / GF::new(0), Err(_)));
-
     // 0 divided by anything non-zero is 0
     for i in 1..8 {
-      assert_eq!(GF::new(0) / GF::new(i), Ok(GF::new(0)));
+      assert_eq!(GF::new(0) / GF::new(i), GF::new(0));
     }
 
     // Division by 1 is identity
     for i in 0..8 {
-      assert_eq!(GF::new(i) / GF::new(1), Ok(GF::new(i)));
+      assert_eq!(GF::new(i) / GF::new(1), GF::new(i));
     }
 
     // For all non-zero a and b, a/b = a * inv(b)
     for a in 1..8 {
       for b in 1..8 {
         let expected = GF::new(a) * GF::new(b).invert().unwrap();
-        assert_eq!(GF::new(a) / GF::new(b), Ok(expected));
+        assert_eq!(GF::new(a) / GF::new(b), expected);
       }
     }
 
     // Some specific test cases
-    assert_eq!(GF::new(2) / GF::new(3), Ok(GF::new(7)));
-    assert_eq!(GF::new(5) / GF::new(6), Ok(GF::new(4)));
-    assert_eq!(GF::new(7) / GF::new(4), Ok(GF::new(3)));
+    assert_eq!(GF::new(2) / GF::new(3), GF::new(7));
+    assert_eq!(GF::new(5) / GF::new(6), GF::new(4));
+    assert_eq!(GF::new(7) / GF::new(4), GF::new(3));
+  }
+
+  // TEST: Division by zero panics
+  #[should_panic]
+  #[test]
+  fn test_div_zero_panic() {
+    let _ = GF::new(2) / GF::new(0);
   }
 }

@@ -556,38 +556,41 @@ mod tests {
   #[test]
   fn test_div() {
     // GF(3^2) | 0 / 1 = 0
-    assert_eq!(GF::new(0) / GF::new(1), Ok(GF::new(0)));
+    assert_eq!(GF::new(0) / GF::new(1), GF::new(0));
     // GF(3^2) | 0 / 2 = 0
-    assert_eq!(GF::new(0) / GF::new(2), Ok(GF::new(0)));
-    // GF(3^2) | 1 / 0 = ERROR
-    assert!(matches!(GF::new(1) / GF::new(0), Err(_)));
-    // GF(3^2) | 2 / 0 = ERROR
-    assert!(matches!(GF::new(2) / GF::new(0), Err(_)));
+    assert_eq!(GF::new(0) / GF::new(2), GF::new(0));
     // GF(3^2) | 1 / 1 = 1
-    assert_eq!(GF::new(1) / GF::new(1), Ok(GF::new(1)));
+    assert_eq!(GF::new(1) / GF::new(1), GF::new(1));
     // GF(3^2) | 1 / 2 = 2
-    assert_eq!(GF::new(1) / GF::new(2), Ok(GF::new(2)));
+    assert_eq!(GF::new(1) / GF::new(2), GF::new(2));
     // GF(3^2) | 2 / 2 = 1
-    assert_eq!(GF::new(2) / GF::new(2), Ok(GF::new(1)));
+    assert_eq!(GF::new(2) / GF::new(2), GF::new(1));
     // GF(3^2) | 2 / 3 = 3
-    assert_eq!(GF::new(2) / GF::new(3), Ok(GF::new(3)));
+    assert_eq!(GF::new(2) / GF::new(3), GF::new(3));
     // GF(3^2) | 3 / 3 = 1
-    assert_eq!(GF::new(3) / GF::new(3), Ok(GF::new(1)));
+    assert_eq!(GF::new(3) / GF::new(3), GF::new(1));
     // GF(3^2) | 1 / 4 = 5
-    assert_eq!(GF::new(1) / GF::new(4), Ok(GF::new(5)));
+    assert_eq!(GF::new(1) / GF::new(4), GF::new(5));
     // GF(3^2) | 2 / 4 = 7
-    assert_eq!(GF::new(2) / GF::new(4), Ok(GF::new(7)));
+    assert_eq!(GF::new(2) / GF::new(4), GF::new(7));
     // GF(3^2) | 3 / 4 = 8
-    assert_eq!(GF::new(3) / GF::new(4), Ok(GF::new(8)));
+    assert_eq!(GF::new(3) / GF::new(4), GF::new(8));
     // GF(3^2) | 4 / 4 = 1
-    assert_eq!(GF::new(4) / GF::new(4), Ok(GF::new(1)));
+    assert_eq!(GF::new(4) / GF::new(4), GF::new(1));
     // GF(3^2) | 1 / 7 = 5
-    assert_eq!(GF::new(1) / GF::new(7), Ok(GF::new(8)));
+    assert_eq!(GF::new(1) / GF::new(7), GF::new(8));
     // GF(3^2) | 2 / 7 = 4
-    assert_eq!(GF::new(2) / GF::new(7), Ok(GF::new(4)));
+    assert_eq!(GF::new(2) / GF::new(7), GF::new(4));
     // GF(3^2) | 6 / 7 = 5
-    assert_eq!(GF::new(6) / GF::new(7), Ok(GF::new(5)));
+    assert_eq!(GF::new(6) / GF::new(7), GF::new(5));
     // GF(3^2) | 1 / 8 = 7
-    assert_eq!(GF::new(1) / GF::new(8), Ok(GF::new(7)));
+    assert_eq!(GF::new(1) / GF::new(8), GF::new(7));
+  }
+
+  // TEST: Division by zero panics
+  #[should_panic]
+  #[test]
+  fn test_div_zero_panic() {
+    let _ = GF::new(2) / GF::new(0);
   }
 }
