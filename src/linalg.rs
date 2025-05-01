@@ -1,14 +1,23 @@
+//// #### An implementation of linear algebra routines for `GF(256)`
+//// We'll use `GF(256)` with the AES irredicible polynomial for linear algebra. And, we'll
+//// also implement indexing (`[idx]`) and ranges (`a..b`).
+
 #![allow(non_snake_case)]
 use crate::gf_256::GF;
 use std::ops::{Index, IndexMut, Range};
 
+//// #### Matrix structure
+
+//// First, we will define a matrix type. Each matrix may have a different number of rows and columns. We'll store the matrix elements
+//// in row-major ordering. We will use the shape parameters to calculate offsets into the flattened array.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Matrix {
     rows: usize,
     cols: usize,
-    dat: Vec<GF>, // row-major-order
+    dat: Vec<GF>, // elements stored in row-major order
 }
 
+//// We'll have two primitive ways to construct a matrix: all zeros or from raw data
 impl Matrix {
     pub fn zeros(rows: usize, cols: usize) -> Self {
         let mut dat = vec![];
@@ -20,7 +29,10 @@ impl Matrix {
         assert_eq!(rows * cols, dat.len());
         Self { rows, cols, dat }
     }
+}
 
+//// We'll also need a few simple accessors:
+impl Matrix {
     pub fn shape(&self) -> (usize, usize) {
         (self.rows, self.cols)
     }
@@ -30,6 +42,15 @@ impl Matrix {
     }
 }
 
+//// #### Element Indexing
+
+//// Let's now implement matrix element indexing. An `m x n` matrix can be indexed by a tuple `(i,j)` where
+//// `0 <= i < m` and `0 <= j < n`.
+////
+//// Syntactically:
+////
+//// - `mat[(0,2)]` accesses the element in row 0 and colomn 2
+//// - `mat[(5,0)]` accesses the element in row 5 and colomn 0
 impl Index<(usize, usize)> for Matrix {
     type Output = GF;
     fn index(&self, idx: (usize, usize)) -> &GF {
@@ -46,6 +67,30 @@ impl IndexMut<(usize, usize)> for Matrix {
         &mut self.dat[idx.0 * self.cols + idx.1]
     }
 }
+
+//// #### Identity Matrices
+
+//// Now that we have indexing, we can write a routine to construct identity matrices. We'll start with
+//// all zeros, and then write 1 to the diagonal entries:
+
+impl Matrix {
+    pub fn identity(n: usize) -> Self {
+        let mut m = Matrix::zeros(n, n);
+        for i in 0..n {
+            m[(i,i)] = GF::new(1);
+        }
+        m
+    }
+}
+
+//// #### Slicing
+////
+//// We'll occasionally need to slice rows and columns of a matrix to form a new submatrix.
+////
+//// Syntactically:
+////
+//// - `mat.slice_rows(0..3)` constructs a new matrix with rows 0 through 3 of the original matrix
+//// - `mat.slice_cols(2..4)` constructs a new matrix with columns 2 through 4 of the original matrix
 
 impl Matrix {
     pub fn slice_rows(&self, r: Range<usize>) -> Matrix {
@@ -81,16 +126,44 @@ impl Matrix {
     }
 }
 
+//// #### Selection
+////
+//// Similar to slicing, we'll also want to select subsets of rows and columns by index
+////
+//// Syntactically:
+////
+//// - `mat.select_rows(&[0,1,2,4])` constructs a new matrix with rows 0, 1, 2, and 4 of the original matrix
+//// - `mat.select_cols(&[3,2])` constructs a new matrix with columns 3 and 2 of the original matrix
+
 impl Matrix {
-    pub fn identity(n: usize) -> Self {
-        let mut m = Matrix::zeros(n, n);
-        for i in 0..n {
-            m[(i,i)] = GF::new(1);
+    pub fn select_rows(&self, sel: &[usize]) -> Matrix {
+        let new_rows = sel.len();
+        let mut out = Matrix::zeros(new_rows, self.cols);
+        for i in 0..new_rows {
+            for j in 0..self.cols {
+                out[(i, j)] = self[(sel[i], j)];
+            }
         }
-        m
+        out
+    }
+
+    pub fn select_cols(&self, sel: &[usize]) -> Matrix {
+        let new_cols = sel.len();
+        let mut out = Matrix::zeros(self.rows, new_cols);
+        for i in 0..self.rows {
+            for j in 0..new_cols {
+                out[(i, j)] = self[(i, sel[j])];
+            }
+        }
+        out
     }
 }
 
+//// #### Matrix multiplication
+//// A matrix multiply can be decomposed into a sequence of multiplications and additions. Any field has
+//// these two operations! This means that we can perform matrix multiplication using field arithmatic!
+////
+//// The implementation isn't anything special either. Its just the textbook algorithm.
 impl Matrix {
     pub fn matmul(&self, other: &Matrix) -> Matrix {
         // Multiply two matrices: (m x n) * (n x p) => (m x p)
@@ -114,12 +187,36 @@ impl Matrix {
     }
 }
 
-// LU Factorization
+//// #### LU Factorization
+
+//// Now, we wish to solve linear systems of equations in the form of `Ax = b`.
+
+//// We can also perform this operation over an arbitrary field! The classic approach is to factor the
+//// `A` matrix into upper-triangular (`U`) and lower-triangular (`L`) parts. That is, we want to find
+//// `A = LU`. This can be done with Gaussian Elimination.
+
+//// First, we'll define a struct to store the results of a factorization. In optimized implementations,
+//// the `A` matrix is typically mutated to store the resulting `L` and `U` factors. But we'll expose
+//// them explicitly here for ease of understanding.
+////
+//// We'll also need a permuation vector for row exchanges. This vector maps the new row (used for
+//// pivoting) to the original row in the `A` matrix.
+
 pub struct LU {
-    lower: Matrix,
-    upper: Matrix,
-    permute: Vec<usize>, // row permutation map (new_row => old_row)
+    lower: Matrix,       // L: lower triangular matrix
+    upper: Matrix,       // U: upper triangular matrix
+    permute: Vec<usize>, // P: row permutation map (new_row => old_row)
 }
+
+//// Let's now implement the Gaussian elimination. We will need to use partial pivoting because
+//// non-singular matrices can have zeros on the diagonal. But, unlike numerical linear algebra, we
+//// don't have to worry about accuracy. This is one of the many cool things about linear algebra over
+//// Finite Fields.
+////
+//// Note, the algorithm below is completely "textbook". I'm not going to explain it in detail because other
+//// great resources exist (FIXME: LINKS!). The point here is that, there is nothing new about this being
+//// used with a finite field. As long as we have valid addition, subtraction, multiplication, and division
+//// then everything Just Works!
 
 impl Matrix {
     pub fn factor_lu(&self) -> Option<LU> {
@@ -136,9 +233,10 @@ impl Matrix {
         // Loop over columns
         for k in 0..cols {
             // Search for a non-zero pivot. Unlike floating-point operations, we don't
-            // have to worry about numerical issues. We only need to pivot because non-singular matrices
-            // can still have zeros in the pivots. If the matrix is non-singular, then the pivot column
-            // must have at least one non-zero entry. So, partial pivoting is always sufficent.
+            // have to worry about numerical issues. We only need to pivot because
+            // non-singular matrices can still have zeros in the pivots. If the matrix
+            // is non-singular, then the pivot column must have at least one non-zero
+            // entry. This, partial pivoting is always sufficent!
             let mut found = false;
             for i in k..rows {
                 if A[(P[i], k)] != GF::new(0) {
@@ -171,7 +269,7 @@ impl Matrix {
                 L[(i,k)] = A[(P[i], k)] / pivot;
             }
 
-            // Apply the transform (row subtraction to the submatrix
+            // Apply the transform (row subtraction to the submatrix)
             for i in (k+1)..rows {
                 let m = L[(i,k)];
                 for j in (k+1)..cols {
@@ -188,7 +286,18 @@ impl Matrix {
     }
 }
 
-// Ly = b: Forward solve with lower triangular matrix (using the permutation)
+//// #### Solving `Ax = b` using an LU Factorization
+
+//// Once we have an LU Factorization, we can solve `Ax = b` as `LUx = b`. This is a much easier problem.
+////
+//// There are two steps:
+////
+//// 1. Solve `Ly = b` for `y` (using forward-substitution)
+//// 2. Solve `Ux = y` for `x` (using back-substitution)
+////
+////
+//// Let's start with forward-substitution. This is also completely "textbook". But, we'll need to be careful to use our permutation map to reorder the `b` vector in the forward-substitution step.
+
 fn solve_lower_tringular(L: &Matrix, b: &Matrix, permute: &[usize]) -> Matrix {
     // Sanity check the shape
     assert!(L.rows == L.cols);
@@ -209,7 +318,8 @@ fn solve_lower_tringular(L: &Matrix, b: &Matrix, permute: &[usize]) -> Matrix {
     y
 }
 
-// Ux = y: Backwards solve with upper triangular matrix
+//// Next, we'll implement back-substitution. This is nearly the same as forward-substitution, but going
+//// in the opposite direction.
 fn solve_upper_tringular(U: &Matrix, y: &Matrix) -> Matrix {
     // Sanity check the shape
     assert!(U.rows == U.cols);
@@ -229,6 +339,8 @@ fn solve_upper_tringular(U: &Matrix, y: &Matrix) -> Matrix {
     }
     x
 }
+
+//// With these two routines, we can now solve the full `LUx = b` problem by simply combining them.
 
 impl LU {
     // Solve LUx = b
@@ -251,6 +363,7 @@ impl LU {
     }
 }
 
+//// And we can add a solver routine for `Ax = b` directly
 impl Matrix {
     // Solve Ax = b with this matrix
     pub fn solve(&self, b: &Matrix) -> Option<Matrix> {
@@ -259,6 +372,11 @@ impl Matrix {
     }
 }
 
+//// #### Matrix Inverses
+//// Solving linear systems is the core important operation in linear algebra. We now have great power!
+////
+//// Let's use it to contruct matrix inverses. This is as simple as solving the linear system `Ax=b` where
+//// `b` is each column of the identity matrix (i.e. each basis vector).
 impl Matrix {
     // Compute the inversion of the matrix. Returns None if the matrix is singular.
     pub fn inverse(&self) -> Option<Matrix> {
@@ -286,8 +404,11 @@ impl Matrix {
     }
 }
 
+//// ### Testing time
+//// We omit the test listing in this article for cleanliness. You can read them in the source code.
+//// <!--
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
@@ -345,6 +466,37 @@ mod test {
 
         assert_eq!(m.slice_rows(3..3), Matrix::from_data(0, 5, vec![]));
         assert_eq!(m.slice_cols(0..0), Matrix::from_data(5, 0, vec![]));
+    }
+
+    #[test]
+    fn test_selecting() {
+        let m = Matrix::from_data(5, 5, vec![
+            GF::new(45), GF::new(76), GF::new(234), GF::new(100), GF::new(1),
+            GF::new(55), GF::new(123), GF::new(34), GF::new(2), GF::new(12),
+            GF::new(52), GF::new(33), GF::new(203), GF::new(91), GF::new(8),
+            GF::new(6), GF::new(16), GF::new(150), GF::new(160), GF::new(49),
+            GF::new(7), GF::new(85), GF::new(191), GF::new(230), GF::new(96),
+        ]);
+
+        assert_eq!(m.select_rows(&[0, 1, 2, 3, 4]), m);
+        assert_eq!(m.select_cols(&[0, 1, 2, 3, 4]), m);
+
+        assert_eq!(m.select_rows(&[1, 2, 4]), Matrix::from_data(3, 5, vec![
+            GF::new(55), GF::new(123), GF::new(34), GF::new(2), GF::new(12),
+            GF::new(52), GF::new(33), GF::new(203), GF::new(91), GF::new(8),
+            GF::new(7), GF::new(85), GF::new(191), GF::new(230), GF::new(96),
+        ]));
+
+        assert_eq!(m.select_cols(&[1, 3, 4]), Matrix::from_data(5, 3, vec![
+            GF::new(76),  GF::new(100), GF::new(1),
+            GF::new(123), GF::new(2),   GF::new(12),
+            GF::new(33),  GF::new(91),  GF::new(8),
+            GF::new(16),  GF::new(160), GF::new(49),
+            GF::new(85),  GF::new(230), GF::new(96),
+        ]));
+
+        assert_eq!(m.select_rows(&[]), Matrix::from_data(0, 5, vec![]));
+        assert_eq!(m.select_cols(&[]), Matrix::from_data(5, 0, vec![]));
     }
 
     #[test]
@@ -425,7 +577,7 @@ mod test {
 
     #[test]
     fn test_factor_lu_permute() {
-        // LU factor a matrix that requires a pivot
+        // LU factor a matrix that requires a row swap (non-trivial permutation)
         let m = Matrix::from_data(2, 2, vec![
             GF::new(0),  GF::new(5),
             GF::new(10), GF::new(20),
@@ -493,7 +645,6 @@ mod test {
         assert_eq!(x, xp);
     }
 
-
     #[test]
     fn test_factor_lu_and_solve() {
         let m = Matrix::from_data(5, 5, vec![
@@ -525,7 +676,7 @@ mod test {
 
     #[test]
     fn test_factor_lu_and_solve_permute() {
-        // LU factor a matrix that requires a pivot
+        // LU factor a matrix that requires a row swap (non-trivial permutation)
         let m = Matrix::from_data(2, 2, vec![
             GF::new(0),  GF::new(5),
             GF::new(10), GF::new(20),
@@ -598,5 +749,5 @@ mod test {
 
         assert!(m.inverse().is_none());
     }
-
 }
+//// -->
