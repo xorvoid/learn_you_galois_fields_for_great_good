@@ -123,7 +123,7 @@ impl GF {
 //// Similarly to subtraction, we can implement division in terms of multiplication
 //// and inversion since: `a / b = a * inv(b)`
 ////
-//// Notice we that division by zero panics. We expect the user to avoid attempting a divide by zero.
+//// Notice that division by zero panics (crashes). We expect the user to avoid attempting a divide by zero.
 impl Div<GF> for GF {
   type Output = GF;
   fn div(self, rhs: Self) -> GF {
