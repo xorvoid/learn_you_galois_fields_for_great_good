@@ -4,7 +4,7 @@
 //// operator-overloading so we can use the normal operators: +, -, *, /
 use std::ops::{Add, Mul, Sub, Div};
 
-//// Rust supports [Const Generics](https://practice.rs/generics-traits/const-generics.html),
+//// Rust supports [Const Generics](https://practice.course.rs/generics-traits/const-generics.html),
 //// but that adds a lot of extra syntax noise which may be distracting for readers without
 //// a background in Rust or C++.
 ////
