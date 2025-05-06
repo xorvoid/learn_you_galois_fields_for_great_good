@@ -92,7 +92,6 @@ fn poly_interpolate(evals: &[GF], xs: &[GF]) -> Vec<GF> {
         //   z' = shift(z) + (-x0)*z
         //
         let x0_neg = x0.negate();
-        let mut prev = GF::new(0);
         for j in (1..n).rev() { // update in reverse
             z[j] = z[j-1] + x0_neg * z[j];
         }
@@ -118,7 +117,7 @@ const X: [GF; 5] = [
 ];
 
 //// Let's write the encode routine. This is just a trivial wrapper around polynomial evaluation!
-fn reed_solomon_poly_encode(data: &[GF]) -> Vec<GF> {
+pub fn reed_solomon_poly_encode(data: &[GF]) -> Vec<GF> {
     // Sanity check
     assert_eq!(data.len(), K);
     assert_eq!(X.len(), N);
@@ -130,7 +129,7 @@ fn reed_solomon_poly_encode(data: &[GF]) -> Vec<GF> {
 //// Let's write the decode routine. We'll specify erasures using `Some(x)` and `None` in Rust. This is not
 //// a common way to do it, but it illustrates the idea of erasures very well. Also, we have the possiblity
 //// that decode could fail if too many erasures happen. This is indicated by returning None.
-fn reed_solomon_poly_decode(encoded: &[Option<GF>]) -> Option<Vec<GF>> {
+pub fn reed_solomon_poly_decode(encoded: &[Option<GF>]) -> Option<Vec<GF>> {
     // Sanity check
     assert_eq!(encoded.len(), N);
 
@@ -199,8 +198,7 @@ mod tests {
         let recv_all: Vec<_> = enc.iter().map(|x| Some(*x)).collect();
 
         // decode with no erasures
-        let mut recv = recv_all.clone();
-        assert_eq!(reed_solomon_poly_decode(&recv), Some(data.clone()));
+        assert_eq!(reed_solomon_poly_decode(&recv_all), Some(data.clone()));
 
         // erase element 0 and decode
         let mut recv = recv_all.clone();
