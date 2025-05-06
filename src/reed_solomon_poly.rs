@@ -2,8 +2,8 @@ use crate::gf_256::GF;
 
 //// #### Polynomial Evaluation
 ////
-//// We will need a routine to evaluate polynomials. For this we'll accept an array of coefficents and
-//// an evalation point. We will use [Horner's Method](https://en.wikipedia.org/wiki/Horner%27s_method)
+//// We will need a routine to evaluate polynomials. For this we'll accept an array of coefficients and
+//// an evaluation point. We will use [Horner's Method](https://en.wikipedia.org/wiki/Horner%27s_method)
 //// for the algorithm. This allows us to do an evaluation in `O(n)` time.
 
 fn poly_eval_point(coeffs: &[GF], x: GF) -> GF {
@@ -16,7 +16,7 @@ fn poly_eval_point(coeffs: &[GF], x: GF) -> GF {
 }
 
 //// We'll also add a routine to evaluate many points at once. This routine takes `O(nm)` time
-//// where `n` is the number of coefficents and `m` is the number of evaluation points
+//// where `n` is the number of coefficients and `m` is the number of evaluation points
 
 fn poly_eval(coeffs: &[GF], xs: &[GF]) -> Vec<GF> {
     let mut out = vec![];
@@ -28,7 +28,7 @@ fn poly_eval(coeffs: &[GF], xs: &[GF]) -> Vec<GF> {
 
 //// #### Polynomial Interpolation
 ////
-//// For polynomial interpolation, we'll recover the coefficents using an expansion from
+//// For polynomial interpolation, we'll recover the coefficients using an expansion from
 //// the newton polynomial. Note: this algorithm is a bit tricky. If you don't follow it right
 //// away, I'd suggest thinking about deriving it yourself directly and compare results. If you
 //// still are having difficulty, it's okay to skim this section. The important things are that
@@ -41,18 +41,18 @@ fn poly_eval(coeffs: &[GF], xs: &[GF]) -> Vec<GF> {
 //// p(x) = k0 + k1*(x-x0) + k2*(x-x0)*(x-x1) + k3*(x-x0)*(x-x1)*(x-x2) + ...
 //// ```
 ////
-//// Our algorithm will maintain two polynomials (stored in monomial coefficent form):
+//// Our algorithm will maintain two polynomials (stored in monomial coefficient form):
 ////
 //// 1. The `p(x)` polynomial constructed so far
 //// 2. The `z(x)` polynomial of `(x - c)` factors so far
 ////
-//// We can iteratively add a new interpolant point each step with the steps:
+//// We can iteratively add a new point each step with the steps:
 ////
 //// 1. Solve for `k` by evaluating `p(x)` and `z(x)`
 //// 2. Update `p` as  `p = p + k * z`
 //// 3. Update `z` as `z = z * (x - c)`
 ////
-//// Since we'll maintain `p(x)` in monomial coefficent form, the final answer is
+//// Since we'll maintain `p(x)` in monomial coefficient form, the final answer is
 //// just `p(x)` whenever we finish adding new points.
 ////
 //// This algorithm has runtime complexity `O(n^2)` where `n` is the number of evaluations
@@ -87,7 +87,7 @@ fn poly_interpolate(evals: &[GF], xs: &[GF]) -> Vec<GF> {
         // Let's simplify a bit first by distributing:
         //   z' = z * x - z * x0
         //
-        // Now notice that multiplying by `x` is a shift of the coefficents.
+        // Now notice that multiplying by `x` is a shift of the coefficients.
         // This leads to the form we'll use:
         //   z' = shift(z) + (-x0)*z
         //
@@ -122,12 +122,12 @@ pub fn reed_solomon_poly_encode(data: &[GF]) -> Vec<GF> {
     assert_eq!(data.len(), K);
     assert_eq!(X.len(), N);
 
-    // Just treat the data as if it's polynomial coefficents and evaluate!
+    // Just treat the data as if it's polynomial coefficients and evaluate!
     poly_eval(data, &X)
 }
 
 //// Let's write the decode routine. We'll specify erasures using `Some(x)` and `None` in Rust. This is not
-//// a common way to do it, but it illustrates the idea of erasures very well. Also, we have the possiblity
+//// a common way to do it, but it illustrates the idea of erasures very well. Also, we have the possibility
 //// that decode could fail if too many erasures happen. This is indicated by returning None.
 pub fn reed_solomon_poly_decode(encoded: &[Option<GF>]) -> Option<Vec<GF>> {
     // Sanity check
@@ -159,7 +159,7 @@ pub fn reed_solomon_poly_decode(encoded: &[Option<GF>]) -> Option<Vec<GF>> {
 
 //// #### Testing Time
 ////
-//// You always write tests for you code too... right? Riiiight!? I always do of course (**wink**)
+//// You always write tests for your code too... right? Riiiight!? I always do of course (**wink**)
 
 #[cfg(test)]
 mod tests {
