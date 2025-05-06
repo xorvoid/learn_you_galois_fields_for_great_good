@@ -11,13 +11,13 @@ pub const Q: u64 = 283;
 pub struct GF(u8);
 
 impl GF {
-  pub fn new(val: u8) -> GF {
+  pub const fn new(val: u8) -> GF {
       // Sanity check!
       assert!((val as usize) < GF::number_of_elements());
       GF(val)
   }
 
-  pub fn number_of_elements() -> usize {
+  pub const fn number_of_elements() -> usize {
       (1 << K) as usize
   }
 
