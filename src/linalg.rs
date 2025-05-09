@@ -200,6 +200,7 @@ impl Matrix {
 //// We'll also need a permutation vector for row exchanges. This vector maps the new row (used for
 //// pivoting) to the original row in the `A` matrix.
 
+#[derive(Debug)]
 pub struct LU {
     lower: Matrix,       // L: lower triangular matrix
     upper: Matrix,       // U: upper triangular matrix
@@ -261,14 +262,14 @@ impl Matrix {
 
 
             // Compute the multipliers and store in column of L
-            L[(k,k)] = GF::new(1);
+            L[(P[k],k)] = GF::new(1);
             for i in (k+1)..rows {
-                L[(i,k)] = A[(P[i], k)] / pivot;
+                L[(P[i],k)] = A[(P[i], k)] / pivot;
             }
 
             // Apply the transform (row subtraction to the sub-matrix)
             for i in (k+1)..rows {
-                let m = L[(i,k)];
+                let m = L[(P[i],k)];
                 for j in (k+1)..cols {
                     A[(P[i],j)] = A[(P[i],j)] - m * A[(P[k],j)];
                 }
@@ -306,11 +307,11 @@ fn solve_lower_triangular(L: &Matrix, b: &Matrix, permute: &[usize]) -> Matrix {
     let mut b = b.clone();
     let mut y = Matrix::zeros(n, 1);
     for j in 0..n { // columns in L
-        let elt = b[(permute[j],0)] / L[(j,j)];
+        let elt = b[(permute[j],0)] / L[(permute[j],j)];
         y[(j,0)] = elt;
 
         for i in (j+1)..n { // walk down the column, subtracting off
-            b[(permute[i],0)] = b[(permute[i], 0)] - L[(i,j)] * elt;
+            b[(permute[i],0)] = b[(permute[i], 0)] - L[(permute[i],j)] * elt;
         }
     }
     y
@@ -587,8 +588,8 @@ mod tests {
 
         let L = &lu.lower;
         assert_eq!(L, &Matrix::new(2, 2, vec![
-            GF::new(1), GF::new(0),
             GF::new(0), GF::new(1),
+            GF::new(1), GF::new(0),
         ]));
 
         let U = &lu.upper;
