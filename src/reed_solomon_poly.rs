@@ -241,25 +241,25 @@ fn encode_decode_all(data: &[GF], expected_enc: &[GF]) {
 #[cfg(test)]
 #[test]
 fn test_encode_decode() {
-    // trivial
+    // test: trivial
     encode_decode_all(
         &[GF::new(0), GF::new(0), GF::new(0)],
         &[GF::new(0), GF::new(0), GF::new(0), GF::new(0), GF::new(0)],
     );
 
-    // ones
+    // test: ones
     encode_decode_all(
         &[GF::new(1), GF::new(1), GF::new(1)],
         &[GF::new(3), GF::new(161), GF::new(7), GF::new(73), GF::new(160)],
     );
 
-    // pattern
+    // test: pattern
     encode_decode_all(
         &[GF::new(100), GF::new(150), GF::new(200)],
         &[GF::new(160), GF::new(135), GF::new(94), GF::new(104), GF::new(194)],
     );
 
-    // random
+    // test: random
     encode_decode_all(
         &[GF::new(216), GF::new(196), GF::new(171)],
         &[GF::new(81), GF::new(157), GF::new(209), GF::new(193), GF::new(105)],

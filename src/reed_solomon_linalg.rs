@@ -1,43 +1,26 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 use crate::gf_256::GF;
 use crate::linalg::Matrix;
 
-
+//// As before, we need some parameters:
 const K: usize = 3;  // Number of data elements (before encoding)
 const N: usize = 5;  // Number of encoded elements
 
 //// We also need to specify the evaluation points. We need to have `N` of these.
 //// For this variant of Reed-Solomon, it really doesn't matter what we pick. They just need to be
-//// distinct elements of `GF(256)`. We choose: `[42, 222, 2, 8, 99]`.
+//// distinct elements of `GF(256)`.
 const X: [GF; 5] = [
     GF::new(42), GF::new(222), GF::new(2), GF::new(8), GF::new(99)
 ];
 
-//// We'll also need some y's for cauchy
-const Y: [GF; 3] = [
-    GF::new(66), GF::new(84), GF::new(112),
-];
 
-//// Build N x K vandermonde encoding matrix
+//// #### Encoding and Decoding with a Matrix
 
-pub fn vandermonde_encoding_matrix() -> Matrix {
-    let mut out = Matrix::zeros(N, K);
-
-    // for each row
-    for i in 0..N {
-        let x = X[i];
-        let mut elt = GF::new(1);
-        // for each col
-        for j in 0..K {
-            out[(i,j)] = elt;
-            elt = elt * x;
-        }
-    }
-
-    out
-}
-
-//// Let's write the encode routine. BLAH BLAH.
+//// For encoding, we'll use a generic matrix `A`. This matrix should have the required
+//// invertibility properties.
+////
+//// We just need to perform a simple multiply (`e = A*d`):
 pub fn reed_solomon_linalg_encode(A: &Matrix, data: &[GF]) -> Vec<GF> {
     // Sanity check
     assert_eq!(data.len(), K);
@@ -52,7 +35,9 @@ pub fn reed_solomon_linalg_encode(A: &Matrix, data: &[GF]) -> Vec<GF> {
     e.data().to_vec()
 }
 
-//// Let's write the decode routine.
+//// Decoding will use the same `A` matrix, removing any rows for erased elements.
+////
+//// We just need to solve a linear system (solve `A_r * d = e_r` for `d`):
 pub fn reed_solomon_linalg_decode(A: &Matrix, encoded: &[Option<GF>]) -> Option<Vec<GF>> {
     // Sanity check
     assert_eq!(encoded.len(), N);
@@ -84,202 +69,168 @@ pub fn reed_solomon_linalg_decode(A: &Matrix, encoded: &[Option<GF>]) -> Option<
     Some(d.data().to_vec())
 }
 
-//// This passes the exact same tests as the polynomial version!
+//// #### Vandermonde Matrices
 
+//// We'll build a Vandermonde Matrix out of `N` evaluation points (`xs`)
+pub fn vandermonde_encoding_matrix(xs: &[GF]) -> Matrix {
+    // Sanity check
+    assert_eq!(xs.len(), N);
+
+    // The resulting matrix will be an N x K Vandermonde
+    let mut mat = Matrix::zeros(N, K);
+
+    // Build up one row at a time
+    for i in 0..N {
+        // Compute each value in the row: 1, x, x^2, x^3, etc
+        let mut value = GF::new(1);
+        for j in 0..K {
+            mat[(i,j)] = value;
+            value = value * xs[i];
+        }
+    }
+
+    mat
+}
+
+//// #### Testing Time
+////
+//// Just like the polynomial version, we should be able to decode up to 2-element erasures.
+//// But, 3-element erasures will fail.
+////
+//// Let's test each possibility.
 #[cfg(test)]
-mod test_vandermonde {
-    use super::*;
+fn encode_decode_all(A: &Matrix, data: &[GF], expected_enc: &[GF]) {
 
-    #[test]
-    fn test_encode_decode() {
-        let A = vandermonde_encoding_matrix();
-        let data = vec![GF::new(100), GF::new(150), GF::new(200)];
+    // encode
+    let enc = reed_solomon_linalg_encode(A, data);
+    assert_eq!(enc, expected_enc);
+    let recv_all: Vec<_> = enc.iter().map(|x| Some(*x)).collect();
 
-        // encode
-        let enc = reed_solomon_linalg_encode(&A, &data);
-        assert_eq!(enc, vec![GF::new(160), GF::new(135), GF::new(94), GF::new(104), GF::new(194)]);
-        let recv_all: Vec<_> = enc.iter().map(|x| Some(*x)).collect();
+    // decode with no erasures: success!
+    assert_eq!(reed_solomon_linalg_decode(A, &recv_all), Some(data.to_vec()));
 
-        // decode with no erasures
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv_all), Some(data.clone()));
-
-        // erase element 0 and decode
+    // decode with all one element erasures: success!
+    for i in 0..N {
         let mut recv = recv_all.clone();
-        recv[0] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
+        recv[i] = None;
+        assert_eq!(reed_solomon_linalg_decode(A, &recv), Some(data.to_vec()));
+    }
 
-        // erase elements 1,2 and decode
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
+    // decode with all two element erasures: success!
+    for i in 0..N {
+        for j in (i+1)..N {
+            let mut recv = recv_all.clone();
+            recv[i] = None;
+            recv[j] = None;
+            assert_eq!(reed_solomon_linalg_decode(A, &recv), Some(data.to_vec()));
+        }
+    }
 
-        // erase elements 2,4 and decode
-        let mut recv = recv_all.clone();
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
-
-        // erase elements 1,2,3 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        recv[3] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
-
-        // erase elements 0,2,4 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[0] = None;
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
+    // decode with all three element erasures: failure!
+    for i in 0..N {
+        for j in (i+1)..N {
+            for k in (j+1)..N {
+                let mut recv = recv_all.clone();
+                recv[i] = None;
+                recv[j] = None;
+                recv[k] = None;
+                assert_eq!(reed_solomon_linalg_decode(A, &recv), None);
+            }
+        }
     }
 }
 
-//// ### Systematic Reed-Solomon
+//// Now we can test a bunch of different data vectors. Note: these are the exact same ones
+//// as in `reed_solomon_poly.rs`, giving an empirical example of equivalence.
+#[cfg(test)]
+#[test]
+fn test_vandermonde_encode_decode() {
+    // construct our vandermonde encoding matrix
+    let A = vandermonde_encoding_matrix(&X);
 
-//// We want systematic matrices now...
+    // test: trivial
+    encode_decode_all(&A,
+        &[GF::new(0), GF::new(0), GF::new(0)],
+        &[GF::new(0), GF::new(0), GF::new(0), GF::new(0), GF::new(0)],
+    );
 
-pub fn systematic_encoding_matrix() -> Matrix {
-    // First build the normal vandermonde
-    let A = vandermonde_encoding_matrix();
+    // test: ones
+    encode_decode_all(&A,
+        &[GF::new(1), GF::new(1), GF::new(1)],
+        &[GF::new(3), GF::new(161), GF::new(7), GF::new(73), GF::new(160)],
+    );
 
-    // Second compute the inverse of the upper K x K square
+    // test: pattern
+    encode_decode_all(&A,
+        &[GF::new(100), GF::new(150), GF::new(200)],
+        &[GF::new(160), GF::new(135), GF::new(94), GF::new(104), GF::new(194)],
+    );
+
+    // test: random
+    encode_decode_all(&A,
+        &[GF::new(216), GF::new(196), GF::new(171)],
+        &[GF::new(81), GF::new(157), GF::new(209), GF::new(193), GF::new(105)],
+    );
+}
+
+//// #### Systematic Matrices
+
+//// We will now construct systematic matrices by transforming an existing `A` matrix
+//// using the `A * inv(A_r)` approach:
+
+pub fn systematic_encoding_matrix(A: &Matrix) -> Matrix {
+    // Compute the inverse of the upper K x K square
     let inv = A.slice_rows(0..K).inverse().unwrap();
 
-    // Third, Multiply
+    // Multiply it
     A.matmul(&inv)
 }
 
 //// #### Testing again
 
-#[cfg(test)]
-mod test_systematic {
-    use super::*;
-
-    #[test]
-    fn test_systematic_encoding() {
-        let A = systematic_encoding_matrix();
-        assert_eq!(A.slice_rows(0..K), Matrix::identity(3));
-    }
-
-    #[test]
-    fn test_encode_decode() {
-        let A = systematic_encoding_matrix();
-        let data = vec![GF::new(100), GF::new(150), GF::new(200)];
-
-        // encode
-        let enc = reed_solomon_linalg_encode(&A, &data);
-        assert_eq!(enc, vec![GF::new(100), GF::new(150), GF::new(200), GF::new(64), GF::new(57)]);
-        let recv_all: Vec<_> = enc.iter().map(|x| Some(*x)).collect();
-
-        // decode with no erasures
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv_all), Some(data.clone()));
-
-        // erase element 0 and decode
-        let mut recv = recv_all.clone();
-        recv[0] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
-
-        // erase elements 1,2 and decode
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
-
-        // erase elements 2,4 and decode
-        let mut recv = recv_all.clone();
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
-
-        // erase elements 1,2,3 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        recv[3] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
-
-        // erase elements 0,2,4 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[0] = None;
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
-    }
-}
-
-//// ### Reed-Solomon with Cauchy matrices
-
-//// We want cauchy matrices now...
-
-pub fn cauchy_encoding_matrix() -> Matrix {
-    // Sanity check
-    assert_eq!(X.len(), N);
-    assert_eq!(Y.len(), K);
-
-    let mut out = Matrix::zeros(N, K);
-
-    // for each row
-    for i in 0..N {
-        let x = X[i];
-        for j in 0..K {
-            let y = Y[j];
-            out[(i,j)] = GF::new(1)/(x+y);
-        }
-    }
-
-    out
-}
-
-//// #### Testing again
+//// We can completely reuse the encoding and decoding routines for the systematic matrices.
+//// This is a very inefficient approach. In practice, you'd instead develop hardcoded
+//// routines for the specific parity rows.
+//// But for our pedagogical purposes, this approach is okay.
+////
+//// Let's demonstrate these with a test, just like before.
 
 #[cfg(test)]
-mod test_cauchy {
-    use super::*;
+#[test]
+fn test_systematic_encode_decode() {
+    // construct our systematic matrix by transforming a vandermonde matrix
+    let A = systematic_encoding_matrix(&vandermonde_encoding_matrix(&X));
 
-    #[test]
-    fn test_encode_decode() {
-        let A = cauchy_encoding_matrix();
-        let data = vec![GF::new(100), GF::new(150), GF::new(200)];
+    // The A matrix should start with a K x K identity
+    assert_eq!(A.slice_rows(0..K), Matrix::identity(K));
 
-        // encode
-        let enc = reed_solomon_linalg_encode(&A, &data);
-        assert_eq!(enc, vec![GF::new(7), GF::new(31), GF::new(153), GF::new(171), GF::new(22)]);
-        let recv_all: Vec<_> = enc.iter().map(|x| Some(*x)).collect();
+    // The remaining N-K rows should be parity
+    assert_eq!(A.slice_rows(K..N), Matrix::new(N-K, K, vec![
+        GF::new(146), GF::new(30),  GF::new(141),
+        GF::new(155), GF::new(137), GF::new(19),
+    ]));
 
-        // decode with no erasures
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv_all), Some(data.clone()));
+    // test: trivial
+    encode_decode_all(&A,
+        &[GF::new(0), GF::new(0), GF::new(0)],
+        &[GF::new(0), GF::new(0), GF::new(0), GF::new(0), GF::new(0)],
+    );
 
-        // erase element 0 and decode
-        let mut recv = recv_all.clone();
-        recv[0] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
+    // test: ones
+    encode_decode_all(&A,
+        &[GF::new(1), GF::new(1), GF::new(1)],
+        &[GF::new(1), GF::new(1), GF::new(1), GF::new(1), GF::new(1)],
+    );
 
-        // erase elements 1,2 and decode
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
+    // test: pattern
+    encode_decode_all(&A,
+        &[GF::new(100), GF::new(150), GF::new(200)],
+        &[GF::new(100), GF::new(150), GF::new(200), GF::new(64), GF::new(57)],
+    );
 
-        // erase elements 2,4 and decode
-        let mut recv = recv_all.clone();
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), Some(data.clone()));
-
-        // erase elements 1,2,3 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[1] = None;
-        recv[2] = None;
-        recv[3] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
-
-        // erase elements 0,2,4 and decode will fail
-        let mut recv = recv_all.clone();
-        recv[0] = None;
-        recv[2] = None;
-        recv[4] = None;
-        assert_eq!(reed_solomon_linalg_decode(&A, &recv), None);
-    }
+    // test: random
+    encode_decode_all(&A,
+        &[GF::new(216), GF::new(196), GF::new(171)],
+        &[GF::new(216), GF::new(196), GF::new(171), GF::new(31), GF::new(66)],
+    );
 }
